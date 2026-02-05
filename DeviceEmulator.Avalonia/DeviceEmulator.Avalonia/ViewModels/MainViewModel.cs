@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using DeviceEmulator.Models;
+using DeviceEmulator.Services; // Added
 using DebuggerLib;
 
 namespace DeviceEmulator.ViewModels
@@ -208,6 +209,8 @@ namespace DeviceEmulator.ViewModels
 
             DebugHelper.InfoNotified += OnDebugInfoNotified;
             DebugHelper.ModeChanged += OnDebugModeChanged;
+
+            LoadSettings(); // Load saved devices
         }
 
         public void AddSerialDevice()
@@ -224,6 +227,7 @@ namespace DeviceEmulator.ViewModels
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[0].Devices.Add(item);
             SelectedDevice = item;
+            SaveSettings(); // Save
         }
 
         public void AddTcpDevice()
@@ -238,6 +242,7 @@ namespace DeviceEmulator.ViewModels
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[1].Devices.Add(item);
             SelectedDevice = item;
+            SaveSettings(); // Save
         }
 
         public void RemoveSelectedDevice()
@@ -251,6 +256,7 @@ namespace DeviceEmulator.ViewModels
                     _selectedDevice.Dispose();
                     category.Devices.Remove(_selectedDevice);
                     SelectedDevice = null;
+                    SaveSettings(); // Save
                     break;
                 }
             }
@@ -288,6 +294,7 @@ namespace DeviceEmulator.ViewModels
             else
             {
                 ErrorMessage = "✅ Compilation successful!";
+                SaveSettings(); // Save on compile
             }
         }
 
@@ -300,6 +307,31 @@ namespace DeviceEmulator.ViewModels
         public void RefreshPorts()
         {
             OnPropertyChanged(nameof(AvailablePorts));
+        }
+
+        private void LoadSettings()
+        {
+            var devices = ConfigurationService.Load();
+            foreach (var deviceConfig in devices)
+            {
+                var item = new DeviceTreeItemViewModel(deviceConfig);
+                item.PropertyChanged += OnDevicePropertyChanged;
+                
+                if (deviceConfig is SerialDeviceConfig)
+                {
+                    Categories[0].Devices.Add(item);
+                }
+                else if (deviceConfig is TcpDeviceConfig)
+                {
+                    Categories[1].Devices.Add(item);
+                }
+            }
+        }
+
+        private void SaveSettings()
+        {
+            var allDevices = Categories.SelectMany(c => c.Devices).Select(d => d.Config);
+            ConfigurationService.Save(allDevices);
         }
 
         private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)

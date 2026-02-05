@@ -1,12 +1,15 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 
 namespace DeviceEmulator.Models
 {
     /// <summary>
     /// Base device configuration with common properties for Serial and TCP devices.
     /// </summary>
+    [JsonDerivedType(typeof(SerialDeviceConfig), typeDiscriminator: "serial")]
+    [JsonDerivedType(typeof(TcpDeviceConfig), typeDiscriminator: "tcp")]
     public abstract class DeviceConfig : INotifyPropertyChanged
     {
         private string _name = "New Device";
