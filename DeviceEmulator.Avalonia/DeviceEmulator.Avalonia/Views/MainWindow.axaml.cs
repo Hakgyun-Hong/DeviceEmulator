@@ -93,6 +93,8 @@ namespace DeviceEmulator.Views
         {
             // Redraw margin to show/hide breakpoints
              _breakpointMargin?.InvalidateVisual();
+             // Redraw background for highlighting
+             ScriptEditor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
         }
 
         private void ScriptEditor_TextChanged(object? sender, EventArgs e)
@@ -180,17 +182,34 @@ namespace DeviceEmulator.Views
 
         public void Draw(TextView textView, DrawingContext drawingContext)
         {
-            var lineNo = _window.ViewModel?.CurrentDebugLine ?? 0;
-            if (lineNo <= 0 || lineNo > _window.ScriptEditor.LineCount) return;
+            if (_window.ViewModel == null) return;
 
-            var line = _window.ScriptEditor.Document.GetLineByNumber(lineNo);
-            
-            // Calculate detailed visual position
-            foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(textView, line))
+            // 1. Draw Breakpoints Background (Light Red)
+            if (_window.ViewModel.Breakpoints.Count > 0)
             {
-                // Extend the width to the full view width
-                var fullWidthRect = new Rect(0, rect.Y, textView.Bounds.Width, rect.Height);
-                drawingContext.DrawRectangle(_backgroundBrush, null, fullWidthRect);
+                var bpBrush = new SolidColorBrush(Color.Parse("#40FF0000")); // Semi-transparent red
+                foreach (var bpLineNo in _window.ViewModel.Breakpoints)
+                {
+                    if (bpLineNo > _window.ScriptEditor.LineCount || bpLineNo < 1) continue;
+                    var bpLine = _window.ScriptEditor.Document.GetLineByNumber(bpLineNo);
+                    foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(textView, bpLine))
+                    {
+                        var fullWidthRect = new Rect(0, rect.Y, textView.Bounds.Width, rect.Height);
+                        drawingContext.DrawRectangle(bpBrush, null, fullWidthRect);
+                    }
+                }
+            }
+
+            // 2. Draw Current Execution Line (Yellow)
+            var lineNo = _window.ViewModel.CurrentDebugLine;
+            if (lineNo > 0 && lineNo <= _window.ScriptEditor.LineCount)
+            {
+                var line = _window.ScriptEditor.Document.GetLineByNumber(lineNo);
+                foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(textView, line))
+                {
+                    var fullWidthRect = new Rect(0, rect.Y, textView.Bounds.Width, rect.Height);
+                    drawingContext.DrawRectangle(_backgroundBrush, null, fullWidthRect);
+                }
             }
         }
     }
