@@ -159,22 +159,26 @@ namespace DeviceEmulator.Scripting
         /// <summary>
         /// Executes the compiled script with the given message.
         /// </summary>
-        public string GetResponse(string message)
+        /// <summary>
+        /// Executes the compiled script with the given message.
+        /// Returns string or byte[] (as object).
+        /// </summary>
+        public object GetResponse(string message, byte[] bytes)
         {
             if (!IsCompiled || _scriptInstance == null || _executeMethod == null)
             {
-                return string.Empty;
+                return null;
             }
 
             try
             {
-                var result = _executeMethod.Invoke(_scriptInstance, new object[] { message });
-                return result as string ?? string.Empty;
+                var result = _executeMethod.Invoke(_scriptInstance, new object[] { message, bytes });
+                return result;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Script execution error: {ex.Message}");
-                return string.Empty;
+                return null;
             }
         }
 
@@ -222,8 +226,17 @@ namespace DeviceEmulator.Scripting
             sb.AppendLine("        if (bytes == null) return string.Empty;");
             sb.AppendLine("        return BitConverter.ToString(bytes).Replace(\"-\", \" \");");
             sb.AppendLine("    }");
+            sb.AppendLine("    private byte[] FromHex(string hex)");
+            sb.AppendLine("    {");
+            sb.AppendLine("        if (string.IsNullOrEmpty(hex)) return new byte[0];");
+            sb.AppendLine("        hex = hex.Replace(\" \", \"\").Replace(\"-\", \"\");");
+            sb.AppendLine("        if (hex.Length % 2 != 0) hex = \"0\" + hex;");
+            sb.AppendLine("        byte[] bytes = new byte[hex.Length / 2];");
+            sb.AppendLine("        for (int i = 0; i < bytes.Length; i++) bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);");
+            sb.AppendLine("        return bytes;");
+            sb.AppendLine("    }");
             sb.AppendLine();
-            sb.AppendLine("    public string Execute(string message)");
+            sb.AppendLine("    public object Execute(string message, byte[] bytes)");
             sb.AppendLine("    {");
             
             // User's script code

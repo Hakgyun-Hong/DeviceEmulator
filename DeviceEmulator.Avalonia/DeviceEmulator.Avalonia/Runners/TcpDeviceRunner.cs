@@ -98,57 +98,127 @@ namespace DeviceEmulator.Runners
             LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] Client connected: {clientEndpoint}");
             Console.WriteLine($"[DEBUG] HandleClientAsync started for {clientEndpoint}");
 
+            bool isHexMode = _config.IsHexMode;
+
             try
             {
                 using (client)
                 using (var stream = client.GetStream())
-                using (var reader = new StreamReader(stream, _config.Encoding))
-                using (var writer = new StreamWriter(stream, _config.Encoding) { AutoFlush = true })
                 {
-                    Console.WriteLine("[DEBUG] StreamReader/Writer created, entering read loop");
-                    while (!_cts.Token.IsCancellationRequested && client.Connected)
+                    if (isHexMode)
                     {
-                        try
+                        // Hex/Binary Mode Loop
+                        byte[] buffer = new byte[4096];
+                        while (!_cts.Token.IsCancellationRequested && client.Connected)
                         {
-                            Console.WriteLine("[DEBUG] Waiting for ReadLineAsync...");
-                            var message = await reader.ReadLineAsync();
-                            Console.WriteLine($"[DEBUG] ReadLineAsync returned: '{message}'");
-                            
-                            if (message == null)
-                            {
-                                Console.WriteLine("[DEBUG] Message is null, client disconnected");
-                                break;
-                            }
+                            try 
+                            { 
+                                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, _cts.Token);
+                                if (bytesRead == 0) break;
 
-                            message = message.Trim();
-                            if (string.IsNullOrEmpty(message))
-                            {
-                                Console.WriteLine("[DEBUG] Empty message, continue");
-                                continue;
-                            }
+                                byte[] receivedBytes = new byte[bytesRead];
+                                Array.Copy(buffer, receivedBytes, bytesRead);
+                                
+                                string hexMessage = BitConverter.ToString(receivedBytes).Replace("-", " ");
+                                
+                                LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] RECEIVED: {hexMessage}");
+                                MessageReceived?.Invoke(hexMessage);
 
-                            LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] RECEIVED: {message}");
-                            MessageReceived?.Invoke(message);
-                            Console.WriteLine($"[DEBUG] IsCompiled: {_script.IsCompiled}");
-
-                            // Generate and send response
-                            if (_script.IsCompiled)
-                            {
-                                Console.WriteLine("[DEBUG] Calling GetResponse...");
-                                var response = _script.GetResponse(message);
-                                Console.WriteLine($"[DEBUG] Response: '{response}'");
-                                if (!string.IsNullOrEmpty(response))
+                                if (_script.IsCompiled)
                                 {
-                                    await writer.WriteLineAsync(response);
-                                    LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] SENT: {response}");
-                                    MessageSent?.Invoke(response);
+                                    var response = _script.GetResponse(hexMessage, receivedBytes);
+                                    if (response != null)
+                                    {
+                                        byte[] bytesToSend = null;
+                                        string logText = "";
+
+                                        if (response is byte[] rawBytes)
+                                        {
+                                            bytesToSend = rawBytes;
+                                            logText = BitConverter.ToString(rawBytes).Replace("-", " ");
+                                        }
+                                        else if (response is string strResp)
+                                        {
+                                            try 
+                                            {
+                                                var hex = strResp.Replace(" ", "").Replace("-", "");
+                                                if (hex.Length % 2 != 0) hex = "0" + hex;
+                                                bytesToSend = new byte[hex.Length / 2];
+                                                for (int i = 0; i < bytesToSend.Length; i++) 
+                                                    bytesToSend[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+                                                logText = strResp;
+                                            }
+                                            catch
+                                            {
+                                                LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] INVALID HEX OUT: {strResp}");
+                                                continue;
+                                            }
+                                        }
+
+                                        if (bytesToSend != null && bytesToSend.Length > 0)
+                                        {
+                                            await stream.WriteAsync(bytesToSend, 0, bytesToSend.Length);
+                                            LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] SENT: {logText}");
+                                            MessageSent?.Invoke(logText);
+                                        }
+                                    }
                                 }
                             }
+                            catch (IOException) { break; }
                         }
-                        catch (IOException ex)
+                    }
+                    else
+                    {
+                        // Text Mode Loop
+                        using (var reader = new StreamReader(stream, _config.Encoding))
+                        using (var writer = new StreamWriter(stream, _config.Encoding) { AutoFlush = true })
                         {
-                            Console.WriteLine($"[DEBUG] IOException: {ex.Message}");
-                            break;
+                            Console.WriteLine("[DEBUG] StreamReader/Writer created, entering read loop");
+                            while (!_cts.Token.IsCancellationRequested && client.Connected)
+                            {
+                                try
+                                {
+                                    var message = await reader.ReadLineAsync();
+                                    
+                                    if (message == null) break;
+
+                                    if (string.IsNullOrEmpty(message)) continue;
+
+                                    LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] RECEIVED: {message}");
+                                    MessageReceived?.Invoke(message);
+
+                                    // Generate and send response
+                                    if (_script.IsCompiled)
+                                    {
+                                        var response = _script.GetResponse(message, _config.Encoding.GetBytes(message));
+                                        
+                                        if (response != null)
+                                        {
+                                            string textToSend = "";
+                                            if (response is string strResp)
+                                            {
+                                                textToSend = strResp;
+                                            }
+                                            else if (response is byte[] rawBytes)
+                                            {
+                                                textToSend = _config.Encoding.GetString(rawBytes);
+                                            }
+
+                                            if (!string.IsNullOrEmpty(textToSend))
+                                            {
+                                                await writer.WriteLineAsync(textToSend);
+                                                LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] SENT: {textToSend}");
+                                                MessageSent?.Invoke(textToSend);
+                                            }
+                                        }
+                                    }
+                                }
+                                catch (IOException ex)
+                                {
+                                    Console.WriteLine($"[DEBUG] IOException: {ex.Message}");
+                                    break;
+                                }
+                            }
                         }
                     }
                 }

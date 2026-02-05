@@ -192,6 +192,7 @@
                                 <TextBox Text="{Binding SelectedDevice.Config.Name, Mode=TwoWay}"/>
                              </StackPanel>
                              <CheckBox Content="Enable Debugging" IsChecked="{Binding SelectedDevice.IsDebuggingEnabled}" Margin="0,4"/>
+                             <CheckBox Content="Hex Mode" IsChecked="{Binding SelectedDevice.Config.IsHexMode, Mode=TwoWay}" Margin="0,4"/>
                              
                              <Separator Background="{StaticResource BorderBrush}" Height="1" Margin="0,8"/>
                              

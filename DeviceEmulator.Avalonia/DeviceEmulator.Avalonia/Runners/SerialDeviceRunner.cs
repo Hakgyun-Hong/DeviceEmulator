@@ -118,9 +118,20 @@ namespace DeviceEmulator.Runners
 
                 var buffer = new byte[_serialPort.BytesToRead];
                 _serialPort.Read(buffer, 0, buffer.Length);
-                var message = Encoding.UTF8.GetString(buffer).Trim();
+                
+                if (buffer.Length == 0) return;
 
-                if (string.IsNullOrEmpty(message)) return;
+                string message;
+                if (_config.IsHexMode)
+                {
+                    message = BitConverter.ToString(buffer).Replace("-", " ");
+                }
+                else
+                {
+                    message = Encoding.UTF8.GetString(buffer).Trim();
+                }
+
+                if (string.IsNullOrEmpty(message) && !_config.IsHexMode) return;
 
                 LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] RECEIVED: {message}");
                 MessageReceived?.Invoke(message);
@@ -128,8 +139,8 @@ namespace DeviceEmulator.Runners
                 // Generate and send response
                 if (_script.IsCompiled)
                 {
-                    var response = _script.GetResponse(message);
-                    if (!string.IsNullOrEmpty(response))
+                    var response = _script.GetResponse(message, buffer);
+                    if (response != null)
                     {
                         SendResponse(response);
                     }
@@ -142,21 +153,55 @@ namespace DeviceEmulator.Runners
             }
         }
 
-        private void SendResponse(string response)
+        private void SendResponse(object responseObj)
         {
             try
             {
                 if (_serialPort == null || !_serialPort.IsOpen) return;
 
-                var formattedResponse = response;
-                if (_config.AppendCR) formattedResponse += "\r";
-                if (_config.AppendLF) formattedResponse += "\n";
+                byte[] bytesToSend = null;
+                string logText = "";
 
-                var bytes = Encoding.UTF8.GetBytes(formattedResponse);
-                _serialPort.Write(bytes, 0, bytes.Length);
+                if (responseObj is byte[] rawBytes)
+                {
+                    bytesToSend = rawBytes;
+                    logText = BitConverter.ToString(rawBytes).Replace("-", " ");
+                }
+                else if (responseObj is string strResp)
+                {
+                    if (_config.IsHexMode)
+                    {
+                        try 
+                        {
+                            var hex = strResp.Replace(" ", "").Replace("-", "");
+                            if (hex.Length % 2 != 0) hex = "0" + hex;
+                            bytesToSend = new byte[hex.Length / 2];
+                            for (int i = 0; i < bytesToSend.Length; i++) 
+                                bytesToSend[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+                            logText = strResp;
+                        }
+                        catch
+                        {
+                            LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] INVALID HEX: {strResp}");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        var formattedResponse = strResp;
+                        if (_config.AppendCR) formattedResponse += "\r";
+                        if (_config.AppendLF) formattedResponse += "\n";
+                        bytesToSend = Encoding.UTF8.GetBytes(formattedResponse);
+                        logText = formattedResponse;
+                    }
+                }
 
-                LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] SENT: {response}");
-                MessageSent?.Invoke(response);
+                if (bytesToSend != null && bytesToSend.Length > 0)
+                {
+                    _serialPort.Write(bytesToSend, 0, bytesToSend.Length);
+                    LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] SENT: {logText}");
+                    MessageSent?.Invoke(logText);
+                }
             }
             catch (Exception ex)
             {

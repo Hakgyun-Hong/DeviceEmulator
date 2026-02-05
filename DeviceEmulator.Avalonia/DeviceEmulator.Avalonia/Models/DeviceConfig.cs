@@ -1,17 +1,22 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization; // Added this using directive
 
 namespace DeviceEmulator.Models
 {
     /// <summary>
     /// Base device configuration with common properties for Serial and TCP devices.
     /// </summary>
+    [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")] // Added this attribute
+    [JsonDerivedType(typeof(SerialDeviceConfig), typeDiscriminator: "serial")] // Added this attribute
+    [JsonDerivedType(typeof(TcpDeviceConfig), typeDiscriminator: "tcp")] // Added this attribute
     public abstract class DeviceConfig : INotifyPropertyChanged
     {
-        private string _name = "New Device";
-        private string _script = "";
-        private bool _isDebuggingEnabled = false;
+        private string _name; // Initializer removed as per instruction
+        private string _script; // Initializer removed as per instruction
+        private bool _isDebuggingEnabled; // Initializer removed as per instruction
+        private bool _isHexMode = false; // Added this field with initializer
 
         /// <summary>
         /// Display name for the device in TreeView.
@@ -38,6 +43,16 @@ namespace DeviceEmulator.Models
         {
             get => _isDebuggingEnabled;
             set { _isDebuggingEnabled = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// If true, data is treated as Hex/Binary.
+        /// Script receives 'bytes' variable and return value is treated as bytes (or Hex String).
+        /// </summary>
+        public bool IsHexMode
+        {
+            get => _isHexMode;
+            set { _isHexMode = value; OnPropertyChanged(); }
         }
 
         /// <summary>

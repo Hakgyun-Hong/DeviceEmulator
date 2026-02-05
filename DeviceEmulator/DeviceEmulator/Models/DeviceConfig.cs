@@ -18,6 +18,7 @@ namespace DeviceEmulator.Models
 // Return the response string
 return ""ECHO: "" + message;";
         private bool _isDebuggingEnabled = false;
+        private bool _isHexMode = false;
 
         /// <summary>
         /// Display name for the device in TreeView.
@@ -44,6 +45,16 @@ return ""ECHO: "" + message;";
         {
             get => _isDebuggingEnabled;
             set { _isDebuggingEnabled = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// If true, data is treated as Hex/Binary.
+        /// Script receives 'bytes' variable and return value is treated as bytes (or Hex String).
+        /// </summary>
+        public bool IsHexMode
+        {
+            get => _isHexMode;
+            set { _isHexMode = value; OnPropertyChanged(); }
         }
 
         /// <summary>
