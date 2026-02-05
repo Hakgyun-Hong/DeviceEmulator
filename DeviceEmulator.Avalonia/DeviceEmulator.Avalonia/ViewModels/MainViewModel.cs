@@ -327,6 +327,22 @@ namespace DeviceEmulator.ViewModels
             Dispatcher.UIThread.Post(() =>
             {
                 DebugState = mode;
+                
+                // Update IsPaused for devices
+                foreach (var category in Categories)
+                {
+                    foreach (var device in category.Devices)
+                    {
+                        if (device.IsRunning && device.IsDebuggingEnabled)
+                        {
+                            device.IsPaused = (mode == DebugMode.Paused || mode == DebugMode.Stepping);
+                        }
+                        else
+                        {
+                            device.IsPaused = false;
+                        }
+                    }
+                }
             });
         }
 

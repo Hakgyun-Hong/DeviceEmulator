@@ -61,39 +61,38 @@
                 
                 <!-- Device Tree -->
                 <ScrollViewer Grid.Row="1" Padding="8">
-                    <StackPanel>
-                        <ItemsControl ItemsSource="{Binding Categories}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Expander IsExpanded="{Binding IsExpanded}" Margin="0,0,0,8">
-                                        <Expander.Header>
-                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"/>
-                                        </Expander.Header>
-                                        <ItemsControl ItemsSource="{Binding Devices}" Margin="16,4,0,0">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Background="Transparent" 
-                                                            Padding="4" Margin="0,2"
-                                                            Tapped="OnDeviceItemClick"
-                                                            Cursor="Hand">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <Ellipse Width="10" Height="10" 
-                                                                     Margin="0,0,8,0">
-                                                                <Ellipse.Fill>
-                                                                    <SolidColorBrush Color="{Binding StatusColorName}"/>
-                                                                </Ellipse.Fill>
-                                                            </Ellipse>
-                                                            <TextBlock Text="{Binding DisplayName}"/>
-                                                        </StackPanel>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Expander>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                    <TreeView ItemsSource="{Binding Categories}" Background="Transparent" BorderThickness="0">
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                            </Style>
+                        </TreeView.Styles>
+                        <TreeView.DataTemplates>
+                            <!-- Category Template -->
+                            <TreeDataTemplate DataType="{x:Type vm:DeviceCategoryViewModel}" ItemsSource="{Binding Devices}">
+                                <StackPanel Orientation="Horizontal" Spacing="6" Background="Transparent" Height="24">
+                                    <TextBlock Text="📁" VerticalAlignment="Center" FontSize="14"/>
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="Bold" Foreground="#E0E0E0"/>
+                                    <Border Background="#333333" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="4,0,0,0">
+                                        <TextBlock Text="{Binding Devices.Count}" Foreground="#CCCCCC" FontSize="11"/>
+                                    </Border>
+                                </StackPanel>
+                            </TreeDataTemplate>
+                            
+                            <!-- Device Template -->
+                            <DataTemplate DataType="{x:Type vm:DeviceTreeItemViewModel}">
+                                <Border Background="Transparent" Padding="4,2" Tapped="OnDeviceItemClick" Cursor="Hand" ToolTip.Tip="{Binding DisplayName}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <!-- Status Dot -->
+                                        <Ellipse Width="8" Height="8" Fill="{Binding StatusColorBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="📄" FontSize="14" VerticalAlignment="Center" Foreground="#AAAAAA"/>
+                                        <TextBlock Text="{Binding Config.Name}" VerticalAlignment="Center" Foreground="#DDDDDD"/>
+                                        <TextBlock Text="{Binding Config.DeviceType}" FontSize="10" Foreground="#888888" VerticalAlignment="Center" Opacity="0.7"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </TreeView.DataTemplates>
+                    </TreeView>
                 </ScrollViewer>
                 
                 <!-- Add Device Buttons -->

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using DeviceEmulator.Models;
 using DeviceEmulator.Runners;
+using Avalonia.Media;
 
 namespace DeviceEmulator.ViewModels
 {
@@ -13,6 +14,7 @@ namespace DeviceEmulator.ViewModels
     public class DeviceTreeItemViewModel : INotifyPropertyChanged
     {
         private bool _isRunning;
+        private bool _isPaused;
         private bool _isSelected;
         private IDeviceRunner? _runner;
         private string _log = "";
@@ -27,14 +29,27 @@ namespace DeviceEmulator.ViewModels
         /// </summary>
         public string DisplayName => $"{Config.Name} ({Config.DeviceType})";
 
-        /// <summary>
-        /// Status color name (for Avalonia styling).
-        /// </summary>
-        public string StatusColorName => _isRunning ? "Green" : "Gray";
+        public IBrush StatusColorBrush
+        {
+            get
+            {
+                if (IsPaused) return Brushes.Yellow;
+                if (IsRunning) return Brushes.Green;
+                return Brushes.Gray;
+            }
+        }
 
-        /// <summary>
-        /// Whether the device is currently running.
-        /// </summary>
+        public bool IsPaused
+        {
+            get => _isPaused;
+            set
+            {
+                _isPaused = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusColorBrush));
+            }
+        }
+
         public bool IsRunning
         {
             get => _isRunning;
@@ -42,7 +57,7 @@ namespace DeviceEmulator.ViewModels
             {
                 _isRunning = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(StatusColorName));
+                OnPropertyChanged(nameof(StatusColorBrush));
                 OnPropertyChanged(nameof(RunButtonText));
             }
         }
