@@ -3,6 +3,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using DeviceEmulator.Views;
 
+using DeviceEmulator.ViewModels;
+
 namespace DeviceEmulator
 {
     public partial class App : Application
@@ -16,7 +18,10 @@ namespace DeviceEmulator
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                desktop.MainWindow = new MainWindow();
+                desktop.MainWindow = new MainWindow
+                {
+                    DataContext = new MainViewModel()
+                };
             }
 
             base.OnFrameworkInitializationCompleted();

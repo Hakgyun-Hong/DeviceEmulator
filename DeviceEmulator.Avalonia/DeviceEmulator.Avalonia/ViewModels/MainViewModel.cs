@@ -34,6 +34,7 @@ namespace DeviceEmulator.ViewModels
             get => _selectedDevice;
             set
             {
+                Console.WriteLine($"[DEBUG] SelectedDevice changed to: {value?.Config?.Name ?? "null"}");
                 if (_selectedDevice != null)
                 {
                     _selectedDevice.Config.Script = _scriptText;
@@ -89,6 +90,11 @@ namespace DeviceEmulator.ViewModels
         /// Debug variables collection.
         /// </summary>
         public ObservableCollection<Variable> Variables { get; } = new();
+
+        /// <summary>
+        /// Active breakpoints (line numbers).
+        /// </summary>
+        public ObservableCollection<int> Breakpoints { get; } = new();
 
         /// <summary>
         /// Current line being debugged (1-based line number). 0 = no highlighting.
@@ -162,6 +168,25 @@ namespace DeviceEmulator.ViewModels
             DebugHelper.StopDebugging();
             CurrentDebugLine = 0;
             Variables.Clear();
+        }
+
+        /// <summary>
+        /// Toggles breakpoint at the specified line.
+        /// </summary>
+        public void ToggleBreakpoint(int line)
+        {
+            if (line < 1) return;
+
+            if (Breakpoints.Contains(line))
+            {
+                Breakpoints.Remove(line);
+                DebugHelper.RemoveBreakpoint(line);
+            }
+            else
+            {
+                Breakpoints.Add(line);
+                DebugHelper.AddBreakpoint(line);
+            }
         }
 
         #endregion
@@ -239,6 +264,12 @@ namespace DeviceEmulator.ViewModels
             if (!_selectedDevice.IsRunning && _selectedDevice.IsDebuggingEnabled)
             {
                 DebugHelper.IsEnabled = true;
+                // Don't auto-pause at first line unless requested (user can set breakpoints)
+                // Or maybe Step vs Run logic.
+                // For now, StartDebugging(true) to mimic previous "wait at start" behavior?
+                // Actually, IDE usually starts in Running mode unless "Step Into" is used.
+                // But the user might want "Step Into".
+                // Let's stick to previous behavior: StartDebugging() -> Stepping
                 DebugHelper.StartDebugging();
             }
 

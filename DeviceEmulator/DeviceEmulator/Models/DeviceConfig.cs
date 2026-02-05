@@ -10,7 +10,9 @@ namespace DeviceEmulator.Models
     public abstract class DeviceConfig : INotifyPropertyChanged
     {
         private string _name = "New Device";
-        private string _script = "";
+        private string _script = @"// Available variable: message (received string)
+// Return the response string
+return ""ECHO: "" + message;";
         private bool _isDebuggingEnabled = false;
 
         /// <summary>

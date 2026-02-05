@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:vm="clr-namespace:DeviceEmulator.ViewModels"
         x:Class="DeviceEmulator.Views.MainWindow"
         Title="Device Emulator (Avalonia)" Width="1400" Height="800"
@@ -73,7 +74,7 @@
                                                 <DataTemplate>
                                                     <Border Background="Transparent" 
                                                             Padding="4" Margin="0,2"
-                                                            PointerPressed="OnDeviceItemClick"
+                                                            Tapped="OnDeviceItemClick"
                                                             Cursor="Hand">
                                                         <StackPanel Orientation="Horizontal">
                                                             <Ellipse Width="10" Height="10" 
@@ -171,13 +172,14 @@
                         </Grid>
                     </Border>
                     
-                    <!-- Script TextBox -->
-                    <TextBox x:Name="ScriptEditor" Grid.Row="2"
-                             Text="{Binding ScriptText, Mode=TwoWay}"
-                             AcceptsReturn="True" AcceptsTab="True"
-                             TextWrapping="NoWrap"
-                             FontFamily="Consolas, Menlo, monospace"
-                             FontSize="13" Padding="10"/>
+                    <!-- Script Editor -->
+                    <AvaloniaEdit:TextEditor x:Name="ScriptEditor" Grid.Row="2"
+                                           FontFamily="Consolas, Menlo, monospace"
+                                           FontSize="13"
+                                           Foreground="#D4D4D4"
+                                           ShowLineNumbers="True"
+                                           HorizontalScrollBarVisibility="Auto"
+                                           VerticalScrollBarVisibility="Visible"/>
                 </Grid>
             </Border>
             
