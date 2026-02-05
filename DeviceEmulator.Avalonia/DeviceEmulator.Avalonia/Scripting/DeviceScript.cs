@@ -1,20 +1,24 @@
 using System;
-using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
-using Microsoft.CSharp;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
 
 namespace DeviceEmulator.Scripting
 {
     /// <summary>
     /// Compiles and executes C# scripts for device response generation.
-    /// Based on SDEmu's SDEmuScript with enhancements for debugging support.
+    /// Uses Roslyn for cross-platform compilation (macOS/Linux/Windows).
     /// </summary>
     public class DeviceScript
     {
-        private object _scriptInstance;
-        private MethodInfo _executeMethod;
+        private object? _scriptInstance;
+        private MethodInfo? _executeMethod;
+        private List<string> _errors = new();
 
         /// <summary>
         /// Whether the script has been successfully compiled.
@@ -22,9 +26,9 @@ namespace DeviceEmulator.Scripting
         public bool IsCompiled { get; private set; }
 
         /// <summary>
-        /// Compilation errors, if any.
+        /// Compilation error messages.
         /// </summary>
-        public CompilerErrorCollection Errors { get; private set; }
+        public IReadOnlyList<string> Errors => _errors;
 
         /// <summary>
         /// Whether to inject debugging breakpoints.
@@ -32,15 +36,14 @@ namespace DeviceEmulator.Scripting
         public bool EnableDebugging { get; set; }
 
         /// <summary>
-        /// Compiles the script code.
+        /// Compiles the script code using Roslyn.
         /// </summary>
-        /// <param name="script">User's script code (body of Execute method)</param>
-        /// <returns>True if compilation succeeded</returns>
         public bool Compile(string script)
         {
             IsCompiled = false;
             _scriptInstance = null;
             _executeMethod = null;
+            _errors.Clear();
 
             // Optionally inject debugging breakpoints
             if (EnableDebugging)
@@ -51,52 +54,108 @@ namespace DeviceEmulator.Scripting
                 }
                 catch (Exception ex)
                 {
-                    // If breakpoint injection fails, continue without debugging
                     System.Diagnostics.Debug.WriteLine($"Breakpoint injection failed: {ex.Message}");
                 }
             }
 
-            var provider = new CSharpCodeProvider();
-            var parameters = new CompilerParameters
-            {
-                GenerateExecutable = false,
-                GenerateInMemory = true
-            };
-
-            // Add required references
-            parameters.ReferencedAssemblies.Add("System.dll");
-            parameters.ReferencedAssemblies.Add("System.Core.dll");
-            parameters.ReferencedAssemblies.Add(typeof(DebuggerLib.DebugHelper).Assembly.Location);
-
             // Build complete source code
             var sourceCode = BuildSourceCode(script);
 
-            var results = provider.CompileAssemblyFromSource(parameters, sourceCode);
-            Errors = results.Errors;
-
-            if (results.Errors.HasErrors)
+            try
             {
-                return false;
+                // Parse the source code
+                var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
+
+                // Get assembly references
+                var references = GetMetadataReferences();
+
+                // Create compilation
+                var compilation = CSharpCompilation.Create(
+                    "DeviceScriptAssembly",
+                    new[] { syntaxTree },
+                    references,
+                    new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+                // Emit to memory
+                using var ms = new MemoryStream();
+                EmitResult result = compilation.Emit(ms);
+
+                if (!result.Success)
+                {
+                    foreach (var diagnostic in result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
+                    {
+                        var lineSpan = diagnostic.Location.GetLineSpan();
+                        var line = lineSpan.StartLinePosition.Line + 1 - 20; // Adjust for wrapper code
+                        if (line < 1) line = lineSpan.StartLinePosition.Line + 1;
+                        _errors.Add($"Line {line}: {diagnostic.GetMessage()}");
+                    }
+                    return false;
+                }
+
+                // Load the assembly
+                ms.Seek(0, SeekOrigin.Begin);
+                var assembly = Assembly.Load(ms.ToArray());
+
+                // Get the script runner instance
+                var runnerType = assembly.GetType("DeviceScriptRunner");
+                if (runnerType != null)
+                {
+                    _scriptInstance = Activator.CreateInstance(runnerType);
+                    _executeMethod = runnerType.GetMethod("Execute");
+                    IsCompiled = true;
+                    return true;
+                }
+                else
+                {
+                    _errors.Add("Could not find DeviceScriptRunner type");
+                }
             }
-
-            // Get the script runner instance
-            var runnerType = results.CompiledAssembly.GetType("DeviceScriptRunner");
-            if (runnerType != null)
+            catch (Exception ex)
             {
-                _scriptInstance = Activator.CreateInstance(runnerType);
-                _executeMethod = runnerType.GetMethod("Execute");
-                IsCompiled = true;
-                return true;
+                _errors.Add($"Compilation error: {ex.Message}");
             }
 
             return false;
         }
 
         /// <summary>
+        /// Gets references to required assemblies.
+        /// </summary>
+        private List<MetadataReference> GetMetadataReferences()
+        {
+            var references = new List<MetadataReference>();
+
+            // Add essential runtime assemblies
+            var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+            
+            references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+            references.Add(MetadataReference.CreateFromFile(typeof(Console).Assembly.Location));
+            references.Add(MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location));
+            
+            // Add System.Runtime
+            var systemRuntimePath = Path.Combine(runtimeDir, "System.Runtime.dll");
+            if (File.Exists(systemRuntimePath))
+                references.Add(MetadataReference.CreateFromFile(systemRuntimePath));
+
+            // Add System.Collections
+            var systemCollectionsPath = Path.Combine(runtimeDir, "System.Collections.dll");
+            if (File.Exists(systemCollectionsPath))
+                references.Add(MetadataReference.CreateFromFile(systemCollectionsPath));
+
+            // Add netstandard (for compatibility)
+            var netstandardPath = Path.Combine(runtimeDir, "netstandard.dll");
+            if (File.Exists(netstandardPath))
+                references.Add(MetadataReference.CreateFromFile(netstandardPath));
+
+            // Add DebuggerLib
+            references.Add(MetadataReference.CreateFromFile(typeof(DebuggerLib.DebugHelper).Assembly.Location));
+
+            return references;
+        }
+
+        /// <summary>
         /// Executes the compiled script with the given message.
         /// </summary>
-        /// <param name="message">Received message</param>
-        /// <returns>Response string, or empty if script not compiled</returns>
         public string GetResponse(string message)
         {
             if (!IsCompiled || _scriptInstance == null || _executeMethod == null)
@@ -181,19 +240,10 @@ namespace DeviceEmulator.Scripting
         /// </summary>
         public string GetErrorMessages()
         {
-            if (Errors == null || Errors.Count == 0)
+            if (_errors.Count == 0)
                 return string.Empty;
 
-            var sb = new StringBuilder();
-            foreach (CompilerError error in Errors)
-            {
-                // Adjust line number to account for wrapper code (approximately 20 lines)
-                var adjustedLine = error.Line - 20;
-                if (adjustedLine < 1) adjustedLine = error.Line;
-                
-                sb.AppendLine($"Line {adjustedLine}: {error.ErrorText}");
-            }
-            return sb.ToString();
+            return string.Join(Environment.NewLine, _errors);
         }
     }
 }
