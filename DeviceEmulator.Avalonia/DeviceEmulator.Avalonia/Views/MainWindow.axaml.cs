@@ -1,8 +1,8 @@
 using System.ComponentModel;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using DeviceEmulator.ViewModels;
 
 namespace DeviceEmulator.Views
@@ -16,43 +16,61 @@ namespace DeviceEmulator.Views
             InitializeComponent();
             DataContext = new MainViewModel();
 
-            // Subscribe to CodeSpan changes for highlighting
+            // Subscribe to CurrentDebugLine changes for highlighting
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
 
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(MainViewModel.CodeSpan))
+            if (e.PropertyName == nameof(MainViewModel.CurrentDebugLine))
             {
-                HighlightCodeSpan();
+                HighlightCurrentLine();
             }
         }
 
-        private void HighlightCodeSpan()
+        private void HighlightCurrentLine()
         {
-            var span = ViewModel.CodeSpan;
-            if (span.start >= 0 && span.length > 0)
+            var lineNumber = ViewModel.CurrentDebugLine;
+            var text = ScriptEditor.Text ?? "";
+            
+            if (lineNumber <= 0 || string.IsNullOrEmpty(text))
             {
-                // Use Avalonia dispatcher to update on UI thread
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    var text = ScriptEditor.Text ?? "";
-                    
-                    // Make sure we don't exceed text bounds
-                    if (span.start < text.Length)
-                    {
-                        var end = System.Math.Min(span.start + span.length, text.Length);
-                        var actualLength = end - span.start;
-
-                        // Set selection to highlight the current statement
-                        ScriptEditor.SelectionStart = span.start;
-                        ScriptEditor.SelectionEnd = end;
-                        
-                        // Focus the editor to make selection visible
-                        ScriptEditor.Focus();
-                    }
-                });
+                // Clear selection
+                ScriptEditor.SelectionStart = 0;
+                ScriptEditor.SelectionEnd = 0;
+                return;
             }
+
+            // Use Avalonia dispatcher to update on UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                var lines = text.Split('\n');
+                
+                if (lineNumber > lines.Length)
+                {
+                    return;
+                }
+
+                // Calculate start position of the target line
+                var startPos = 0;
+                for (var i = 0; i < lineNumber - 1 && i < lines.Length; i++)
+                {
+                    startPos += lines[i].Length + 1; // +1 for newline character
+                }
+
+                // Calculate end position (end of the line)
+                var lineContent = lines[lineNumber - 1];
+                var endPos = startPos + lineContent.TrimEnd('\r').Length;
+
+                // Set selection to highlight the entire line
+                ScriptEditor.SelectionStart = startPos;
+                ScriptEditor.SelectionEnd = endPos;
+
+                // Focus the editor to make selection visible
+                ScriptEditor.Focus();
+
+                System.Console.WriteLine($"[DEBUG] Highlighting line {lineNumber}: pos {startPos}-{endPos}");
+            });
         }
 
         private void OnDeviceItemClick(object? sender, PointerPressedEventArgs e)

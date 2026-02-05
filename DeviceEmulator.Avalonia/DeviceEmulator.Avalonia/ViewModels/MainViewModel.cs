@@ -18,7 +18,7 @@ namespace DeviceEmulator.ViewModels
         private DeviceTreeItemViewModel? _selectedDevice;
         private string _scriptText = "";
         private string _errorMessage = "";
-        private (int start, int length) _codeSpan;
+        private int _currentDebugLine = 0;
         private DebugMode _debugState = DebugMode.Running;
 
         /// <summary>
@@ -91,12 +91,12 @@ namespace DeviceEmulator.ViewModels
         public ObservableCollection<Variable> Variables { get; } = new();
 
         /// <summary>
-        /// Current code span for highlighting.
+        /// Current line being debugged (1-based line number). 0 = no highlighting.
         /// </summary>
-        public (int start, int length) CodeSpan
+        public int CurrentDebugLine
         {
-            get => _codeSpan;
-            set { _codeSpan = value; OnPropertyChanged(); }
+            get => _currentDebugLine;
+            set { _currentDebugLine = value; OnPropertyChanged(); }
         }
 
         #region Debug State
@@ -160,7 +160,7 @@ namespace DeviceEmulator.ViewModels
         public void DebugStop()
         {
             DebugHelper.StopDebugging();
-            CodeSpan = (-1, 0);
+            CurrentDebugLine = 0;
             Variables.Clear();
         }
 
@@ -282,11 +282,11 @@ namespace DeviceEmulator.ViewModels
             }
         }
 
-        private void OnDebugInfoNotified(int spanStart, int spanLength, Var[] variables)
+        private void OnDebugInfoNotified(int lineNumber, Var[] variables)
         {
             Dispatcher.UIThread.Post(() =>
             {
-                CodeSpan = (spanStart, spanLength);
+                CurrentDebugLine = lineNumber;
                 UpdateVariables(variables);
             });
         }

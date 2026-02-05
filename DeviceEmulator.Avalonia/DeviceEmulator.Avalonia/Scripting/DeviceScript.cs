@@ -51,10 +51,13 @@ namespace DeviceEmulator.Scripting
                 try
                 {
                     script = SyntaxHelper.InsertBreakpoints(script);
+                    Console.WriteLine("[DEBUG] Generated script with breakpoints:");
+                    Console.WriteLine(script);
+                    Console.WriteLine("[DEBUG] End of generated script");
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Breakpoint injection failed: {ex.Message}");
+                    Console.WriteLine($"[DEBUG] Breakpoint injection failed: {ex.Message}");
                 }
             }
 
