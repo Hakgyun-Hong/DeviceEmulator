@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Avalonia.Threading;
 using DeviceEmulator.Models;
 using DebuggerLib;
@@ -20,6 +19,7 @@ namespace DeviceEmulator.ViewModels
         private string _scriptText = "";
         private string _errorMessage = "";
         private (int start, int length) _codeSpan;
+        private DebugMode _debugState = DebugMode.Running;
 
         /// <summary>
         /// Device categories.
@@ -99,6 +99,73 @@ namespace DeviceEmulator.ViewModels
             set { _codeSpan = value; OnPropertyChanged(); }
         }
 
+        #region Debug State
+
+        /// <summary>
+        /// Current debug execution state.
+        /// </summary>
+        public DebugMode DebugState
+        {
+            get => _debugState;
+            private set
+            {
+                _debugState = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsPaused));
+                OnPropertyChanged(nameof(IsDebugging));
+                OnPropertyChanged(nameof(DebugStateText));
+            }
+        }
+
+        /// <summary>
+        /// Whether debugger is currently paused at a breakpoint.
+        /// </summary>
+        public bool IsPaused => _debugState == DebugMode.Paused;
+
+        /// <summary>
+        /// Whether debugging is active (not running freely).
+        /// </summary>
+        public bool IsDebugging => _debugState != DebugMode.Running;
+
+        /// <summary>
+        /// Text description of current debug state.
+        /// </summary>
+        public string DebugStateText => _debugState switch
+        {
+            DebugMode.Running => "Running",
+            DebugMode.Paused => "⏸️ Paused",
+            DebugMode.Stepping => "⏭️ Stepping",
+            _ => ""
+        };
+
+        /// <summary>
+        /// Continue execution until next breakpoint or end.
+        /// </summary>
+        public void DebugContinue()
+        {
+            DebugHelper.Continue();
+        }
+
+        /// <summary>
+        /// Execute one step then pause.
+        /// </summary>
+        public void DebugStep()
+        {
+            DebugHelper.Step();
+        }
+
+        /// <summary>
+        /// Stop debugging and resume normal execution.
+        /// </summary>
+        public void DebugStop()
+        {
+            DebugHelper.StopDebugging();
+            CodeSpan = (-1, 0);
+            Variables.Clear();
+        }
+
+        #endregion
+
         /// <summary>
         /// Available COM ports.
         /// </summary>
@@ -115,6 +182,7 @@ namespace DeviceEmulator.ViewModels
             Categories.Add(new DeviceCategoryViewModel("TCP Devices", "TCP"));
 
             DebugHelper.InfoNotified += OnDebugInfoNotified;
+            DebugHelper.ModeChanged += OnDebugModeChanged;
         }
 
         public void AddSerialDevice()
@@ -165,7 +233,16 @@ namespace DeviceEmulator.ViewModels
 
         public void ToggleSelectedDeviceRunning()
         {
-            _selectedDevice?.ToggleRunning();
+            if (_selectedDevice == null) return;
+
+            // Enable debugging in DebugHelper if device has debugging enabled
+            if (!_selectedDevice.IsRunning && _selectedDevice.IsDebuggingEnabled)
+            {
+                DebugHelper.IsEnabled = true;
+                DebugHelper.StartDebugging();
+            }
+
+            _selectedDevice.ToggleRunning();
         }
 
         public void CompileScript()
@@ -179,7 +256,7 @@ namespace DeviceEmulator.ViewModels
             }
             else
             {
-                ErrorMessage = "Compilation successful!";
+                ErrorMessage = "✅ Compilation successful!";
             }
         }
 
@@ -198,7 +275,10 @@ namespace DeviceEmulator.ViewModels
         {
             if (sender == _selectedDevice && e.PropertyName == nameof(DeviceTreeItemViewModel.Log))
             {
-                OnPropertyChanged(nameof(SelectedDeviceLog));
+                Dispatcher.UIThread.Post(() =>
+                {
+                    OnPropertyChanged(nameof(SelectedDeviceLog));
+                });
             }
         }
 
@@ -209,8 +289,14 @@ namespace DeviceEmulator.ViewModels
                 CodeSpan = (spanStart, spanLength);
                 UpdateVariables(variables);
             });
+        }
 
-            Thread.Sleep(500);
+        private void OnDebugModeChanged(DebugMode mode)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                DebugState = mode;
+            });
         }
 
         private void UpdateVariables(Var[] variables)

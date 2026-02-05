@@ -50,22 +50,18 @@ namespace DeviceEmulator.Runners
                     _isRunning = true;
                     RunningStateChanged?.Invoke(true);
                     LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] TCP listening on 127.0.0.1:{_config.Port}");
+                    Console.WriteLine($"[DEBUG] TCP listener started on port {_config.Port}");
 
                     while (!_cts.Token.IsCancellationRequested)
                     {
                         try
                         {
                             // Accept connection with cancellation support
-                            var acceptTask = _listener.AcceptTcpClientAsync();
-                            var delayTask = Task.Delay(500, _cts.Token);
-
-                            var completedTask = await Task.WhenAny(acceptTask, delayTask);
-
-                            if (completedTask == acceptTask && acceptTask.Status == TaskStatus.RanToCompletion)
-                            {
-                                var client = await acceptTask;
-                                _ = HandleClientAsync(client);
-                            }
+                            Console.WriteLine("[DEBUG] Waiting for client...");
+                            var client = await _listener.AcceptTcpClientAsync();
+                            Console.WriteLine($"[DEBUG] Client connected!");
+                            LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] Client connected");
+                            _ = HandleClientAsync(client);
                         }
                         catch (OperationCanceledException)
                         {
@@ -75,10 +71,15 @@ namespace DeviceEmulator.Runners
                         {
                             break;
                         }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[DEBUG] Accept error: {ex.Message}");
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine($"[DEBUG] Startup error: {ex.Message}");
                     ErrorOccurred?.Invoke(ex);
                     LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
                 }
@@ -95,6 +96,7 @@ namespace DeviceEmulator.Runners
         {
             var clientEndpoint = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
             LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] Client connected: {clientEndpoint}");
+            Console.WriteLine($"[DEBUG] HandleClientAsync started for {clientEndpoint}");
 
             try
             {
@@ -103,28 +105,38 @@ namespace DeviceEmulator.Runners
                 using (var reader = new StreamReader(stream, _config.Encoding))
                 using (var writer = new StreamWriter(stream, _config.Encoding) { AutoFlush = true })
                 {
+                    Console.WriteLine("[DEBUG] StreamReader/Writer created, entering read loop");
                     while (!_cts.Token.IsCancellationRequested && client.Connected)
                     {
                         try
                         {
+                            Console.WriteLine("[DEBUG] Waiting for ReadLineAsync...");
                             var message = await reader.ReadLineAsync();
+                            Console.WriteLine($"[DEBUG] ReadLineAsync returned: '{message}'");
                             
                             if (message == null)
                             {
-                                // Client disconnected
+                                Console.WriteLine("[DEBUG] Message is null, client disconnected");
                                 break;
                             }
 
                             message = message.Trim();
-                            if (string.IsNullOrEmpty(message)) continue;
+                            if (string.IsNullOrEmpty(message))
+                            {
+                                Console.WriteLine("[DEBUG] Empty message, continue");
+                                continue;
+                            }
 
                             LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] RECEIVED: {message}");
                             MessageReceived?.Invoke(message);
+                            Console.WriteLine($"[DEBUG] IsCompiled: {_script.IsCompiled}");
 
                             // Generate and send response
                             if (_script.IsCompiled)
                             {
+                                Console.WriteLine("[DEBUG] Calling GetResponse...");
                                 var response = _script.GetResponse(message);
+                                Console.WriteLine($"[DEBUG] Response: '{response}'");
                                 if (!string.IsNullOrEmpty(response))
                                 {
                                     await writer.WriteLineAsync(response);
@@ -133,9 +145,9 @@ namespace DeviceEmulator.Runners
                                 }
                             }
                         }
-                        catch (IOException)
+                        catch (IOException ex)
                         {
-                            // Connection closed
+                            Console.WriteLine($"[DEBUG] IOException: {ex.Message}");
                             break;
                         }
                     }
@@ -143,11 +155,13 @@ namespace DeviceEmulator.Runners
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[DEBUG] HandleClient exception: {ex.Message}");
                 ErrorOccurred?.Invoke(ex);
                 LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] Client error: {ex.Message}");
             }
             finally
             {
+                Console.WriteLine($"[DEBUG] Client {clientEndpoint} cleanup");
                 LogMessage?.Invoke($"[{DateTime.Now:HH:mm:ss}] Client disconnected: {clientEndpoint}");
             }
         }

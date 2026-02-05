@@ -162,7 +162,12 @@ namespace DeviceEmulator.ViewModels
 
         private void OnLogMessage(string message)
         {
-            Log += message + Environment.NewLine;
+            Console.WriteLine($"[DEBUG] OnLogMessage called: {message}");
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                Log += message + Environment.NewLine;
+                Console.WriteLine($"[DEBUG] Log updated, length: {Log.Length}");
+            });
         }
 
         public void Dispose()
