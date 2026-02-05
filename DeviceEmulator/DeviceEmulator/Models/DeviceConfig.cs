@@ -8,6 +8,7 @@ namespace DeviceEmulator.Models
     /// <summary>
     /// Base device configuration with common properties for Serial and TCP devices.
     /// </summary>
+    [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
     [JsonDerivedType(typeof(SerialDeviceConfig), typeDiscriminator: "serial")]
     [JsonDerivedType(typeof(TcpDeviceConfig), typeDiscriminator: "tcp")]
     public abstract class DeviceConfig : INotifyPropertyChanged

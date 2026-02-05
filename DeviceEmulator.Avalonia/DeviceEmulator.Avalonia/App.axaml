@@ -2,9 +2,103 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DeviceEmulator.App"
              RequestedThemeVariant="Dark">
+    <Application.Resources>
+        <!-- VS Code Palette -->
+        <SolidColorBrush x:Key="BgDark">#1E1E1E</SolidColorBrush>
+        <SolidColorBrush x:Key="BgSidebar">#252526</SolidColorBrush>
+        <SolidColorBrush x:Key="BgHeader">#2D2D2D</SolidColorBrush>
+        <SolidColorBrush x:Key="BgActivityBar">#333333</SolidColorBrush>
+        <SolidColorBrush x:Key="BorderBrush">#3F3F46</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentBrush">#007ACC</SolidColorBrush>
+        <SolidColorBrush x:Key="TextPrimary">#CCCCCC</SolidColorBrush>
+        <SolidColorBrush x:Key="TextSecondary">#969696</SolidColorBrush>
+        <SolidColorBrush x:Key="EditorBg">#1E1E1E</SolidColorBrush>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+        <!-- DataGrid Theme -->
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        <!-- AvaloniaEdit Theme -->
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+
+        <!-- Global TextBlock -->
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontFamily" Value="Segoe UI, SF Pro Display, Helvetica Neue, Sans-Serif"/>
+        </Style>
+
+        <!-- Button Styles -->
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#4C4C4C"/>
+        </Style>
+        
+        <!-- Primary Button -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0062A3"/>
+        </Style>
+
+        <!-- Danger Button -->
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#D32F2F"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#B71C1C"/>
+        </Style>
+
+        <!-- Success Button -->
+        <Style Selector="Button.success">
+            <Setter Property="Background" Value="#388E3C"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.success:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2E7D32"/>
+        </Style>
+
+        <!-- TextBox -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+        </Style>
+
+        <!-- ComboBox -->
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+        
+        <!-- TreeView -->
+        <Style Selector="TreeView">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot:pointerover">
+            <Setter Property="Background" Value="#2A2D2E"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+             <Setter Property="Background" Value="#37373D"/>
+        </Style>
     </Application.Styles>
 </Application>
