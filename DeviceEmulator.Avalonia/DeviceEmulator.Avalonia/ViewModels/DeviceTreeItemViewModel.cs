@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -95,6 +96,19 @@ namespace DeviceEmulator.ViewModels
             {
                 Config.IsDebuggingEnabled = value;
                 OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Shared global variables from the interactive console.
+        /// Set by MainViewModel after device creation.
+        /// </summary>
+        public Dictionary<string, object?>? Globals
+        {
+            get => _runner?.Globals;
+            set
+            {
+                if (_runner != null) _runner.Globals = value;
             }
         }
 

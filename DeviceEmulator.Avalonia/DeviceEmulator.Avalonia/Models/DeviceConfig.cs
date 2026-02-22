@@ -16,7 +16,7 @@ namespace DeviceEmulator.Models
         private string _name; // Initializer removed as per instruction
         private string _script; // Initializer removed as per instruction
         private bool _isDebuggingEnabled; // Initializer removed as per instruction
-        private bool _isHexMode = false; // Added this field with initializer
+        private bool _isHexMode = true; // Added this field with initializer
 
         /// <summary>
         /// Display name for the device in TreeView.

@@ -145,6 +145,11 @@ namespace DeviceEmulator.Scripting
             if (File.Exists(systemCollectionsPath))
                 references.Add(MetadataReference.CreateFromFile(systemCollectionsPath));
 
+            // Add System.ObjectModel (for Dictionary etc)
+            var systemObjectModelPath = Path.Combine(runtimeDir, "System.ObjectModel.dll");
+            if (File.Exists(systemObjectModelPath))
+                references.Add(MetadataReference.CreateFromFile(systemObjectModelPath));
+
             // Add netstandard (for compatibility)
             var netstandardPath = Path.Combine(runtimeDir, "netstandard.dll");
             if (File.Exists(netstandardPath))
@@ -163,7 +168,7 @@ namespace DeviceEmulator.Scripting
         /// Executes the compiled script with the given message.
         /// Returns string or byte[] (as object).
         /// </summary>
-        public object GetResponse(string message, byte[] bytes)
+        public object GetResponse(string message, byte[] bytes, Dictionary<string, object?> globals = null)
         {
             if (!IsCompiled || _scriptInstance == null || _executeMethod == null)
             {
@@ -172,7 +177,7 @@ namespace DeviceEmulator.Scripting
 
             try
             {
-                var result = _executeMethod.Invoke(_scriptInstance, new object[] { message, bytes });
+                var result = _executeMethod.Invoke(_scriptInstance, new object[] { message, bytes, globals ?? new Dictionary<string, object?>() });
                 return result;
             }
             catch (Exception ex)
@@ -236,7 +241,7 @@ namespace DeviceEmulator.Scripting
             sb.AppendLine("        return bytes;");
             sb.AppendLine("    }");
             sb.AppendLine();
-            sb.AppendLine("    public object Execute(string message, byte[] bytes)");
+            sb.AppendLine("    public object Execute(string message, byte[] bytes, Dictionary<string, object> globals)");
             sb.AppendLine("    {");
             
             // User's script code

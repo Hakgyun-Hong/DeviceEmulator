@@ -18,7 +18,7 @@ namespace DeviceEmulator.Models
 // Return the response string
 return ""ECHO: "" + message;";
         private bool _isDebuggingEnabled = false;
-        private bool _isHexMode = false;
+        private bool _isHexMode = true;
 
         /// <summary>
         /// Display name for the device in TreeView.

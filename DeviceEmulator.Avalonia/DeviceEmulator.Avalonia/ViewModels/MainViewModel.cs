@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using DeviceEmulator.Models;
-using DeviceEmulator.Services; // Added
+using DeviceEmulator.Services;
+using DeviceEmulator.Scripting;
 using DebuggerLib;
 
 namespace DeviceEmulator.ViewModels
@@ -21,6 +24,14 @@ namespace DeviceEmulator.ViewModels
         private string _errorMessage = "";
         private int _currentDebugLine = 0;
         private DebugMode _debugState = DebugMode.Running;
+        private string _consoleInput = "";
+        private string _consoleOutput = "";
+        private readonly InteractiveConsole _console = new();
+
+        /// <summary>
+        /// Shared global variables from the interactive console.
+        /// </summary>
+        public ObservableCollection<Variable> GlobalVariables { get; } = new();
 
         /// <summary>
         /// Device categories.
@@ -210,8 +221,77 @@ namespace DeviceEmulator.ViewModels
             DebugHelper.InfoNotified += OnDebugInfoNotified;
             DebugHelper.ModeChanged += OnDebugModeChanged;
 
+            _console.VariablesChanged += OnConsoleVariablesChanged;
+
             LoadSettings(); // Load saved devices
         }
+
+        #region Interactive Console
+
+        /// <summary>
+        /// Console input text (bound to TextBox).
+        /// </summary>
+        public string ConsoleInput
+        {
+            get => _consoleInput;
+            set { _consoleInput = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Console output text (accumulated results).
+        /// </summary>
+        public string ConsoleOutput
+        {
+            get => _consoleOutput;
+            set { _consoleOutput = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Shared globals dictionary for device scripts.
+        /// </summary>
+        public Dictionary<string, object?> SharedGlobals => _console.SharedGlobals;
+
+        /// <summary>
+        /// Execute the current console input.
+        /// </summary>
+        public async Task ExecuteConsoleCommandAsync()
+        {
+            var input = ConsoleInput?.Trim();
+            if (string.IsNullOrEmpty(input)) return;
+
+            ConsoleOutput += $"> {input}{Environment.NewLine}";
+            ConsoleInput = "";
+
+            var result = await _console.ExecuteAsync(input);
+            if (!string.IsNullOrEmpty(result))
+            {
+                ConsoleOutput += $"{result}{Environment.NewLine}";
+            }
+        }
+
+        /// <summary>
+        /// Reset the console state.
+        /// </summary>
+        public void ResetConsole()
+        {
+            _console.Reset();
+            ConsoleOutput = "[Console reset]" + Environment.NewLine;
+            GlobalVariables.Clear();
+        }
+
+        private void OnConsoleVariablesChanged()
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                GlobalVariables.Clear();
+                foreach (var (name, value, type) in _console.GetVariables())
+                {
+                    GlobalVariables.Add(new Variable(name, value, type));
+                }
+            });
+        }
+
+        #endregion
 
         public void AddSerialDevice()
         {
@@ -315,6 +395,7 @@ namespace DeviceEmulator.ViewModels
             foreach (var deviceConfig in devices)
             {
                 var item = new DeviceTreeItemViewModel(deviceConfig);
+                item.Globals = SharedGlobals;
                 item.PropertyChanged += OnDevicePropertyChanged;
                 
                 if (deviceConfig is SerialDeviceConfig)

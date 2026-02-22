@@ -144,23 +144,49 @@
                 <!-- Splitter -->
                 <GridSplitter Grid.Row="2" Background="{StaticResource BorderBrush}" ResizeDirection="Rows"/>
 
-                <!-- Bottom Panel (Output) -->
+                <!-- Bottom Panel (Output + Console) -->
                 <Border Grid.Row="3" Background="{StaticResource BgSidebar}">
                     <Grid RowDefinitions="28,*">
                         <StackPanel Orientation="Horizontal" Margin="10,0">
-                            <TextBlock Text="OUTPUT" VerticalAlignment="Center" FontSize="11" Foreground="#BBBBBB" Margin="0,0,16,0"/>
-                            <TextBlock Text="DEBUG CONSOLE" VerticalAlignment="Center" FontSize="11" Foreground="#666666" Margin="0,0,16,0"/>
-                            <TextBlock Text="PROBLEMS" VerticalAlignment="Center" FontSize="11" Foreground="#666666"/>
+                            <Border x:Name="OutputTab" Padding="8,4" Cursor="Hand" Background="Transparent" Tapped="OnOutputTabClick">
+                                <TextBlock Text="OUTPUT" VerticalAlignment="Center" FontSize="11" Foreground="#BBBBBB"/>
+                            </Border>
+                            <Border x:Name="ConsoleTab" Padding="8,4" Cursor="Hand" Background="Transparent" Tapped="OnConsoleTabClick"  Margin="8,0,0,0">
+                                <TextBlock Text="DEBUG CONSOLE" VerticalAlignment="Center" FontSize="11" Foreground="#666666"/>
+                            </Border>
                             
                             <!-- Clear Button -->
                             <Button Content="Clear" Click="OnClearLog" Padding="6,2" FontSize="10" Margin="20,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                         
-                        <TextBox Grid.Row="1" Text="{Binding SelectedDeviceLog, Mode=OneWay}"
+                        <!-- Output View -->
+                        <TextBox x:Name="OutputPanel" Grid.Row="1" Text="{Binding SelectedDeviceLog, Mode=OneWay}"
                                  IsReadOnly="True" TextWrapping="Wrap"
                                  Background="{StaticResource BgDark}" BorderThickness="0"
                                  FontFamily="Consolas, Menlo, monospace" Foreground="#DDDDDD"
                                  FontSize="12" Padding="8"/>
+                        
+                        <!-- Console View (hidden by default) -->
+                        <Grid x:Name="ConsolePanel" Grid.Row="1" RowDefinitions="*,Auto" IsVisible="False">
+                            <TextBox Text="{Binding ConsoleOutput, Mode=OneWay}"
+                                     IsReadOnly="True" TextWrapping="Wrap"
+                                     Background="{StaticResource BgDark}" BorderThickness="0"
+                                     FontFamily="Consolas, Menlo, monospace" Foreground="#98C379"
+                                     FontSize="12" Padding="8"/>
+                            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Background="#2D2D2D">
+                                <TextBlock Text=">" Foreground="#61AFEF" FontFamily="Consolas, Menlo, monospace" FontSize="13" 
+                                           VerticalAlignment="Center" Margin="8,0,4,0" FontWeight="Bold"/>
+                                <TextBox x:Name="ConsoleInputBox" Grid.Column="1" 
+                                         Text="{Binding ConsoleInput, Mode=TwoWay}"
+                                         Background="Transparent" BorderThickness="0" 
+                                         FontFamily="Consolas, Menlo, monospace" Foreground="#ABB2BF" 
+                                         FontSize="13" Padding="4" 
+                                         Watermark="Type C# code here... (Enter to execute)"
+                                         KeyDown="OnConsoleKeyDown"/>
+                                <Button Grid.Column="2" Content="Reset" Click="OnResetConsole" 
+                                        Padding="8,4" FontSize="10" Margin="4" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Grid>
                     </Grid>
                 </Border>
                 
@@ -223,9 +249,9 @@
                     <GridSplitter Grid.Row="3" Background="{StaticResource BorderBrush}" ResizeDirection="Rows"/>
 
                     <!-- Variables -->
-                    <Grid Grid.Row="4" RowDefinitions="Auto,*">
+                    <Grid Grid.Row="4" RowDefinitions="Auto,*,Auto,*">
                         <Border Padding="10,6" Background="{StaticResource BgSidebar}">
-                            <TextBlock Text="VARIABLES" FontSize="11" FontWeight="Bold" Foreground="#BBBBBB"/>
+                            <TextBlock Text="DEBUG VARIABLES" FontSize="11" FontWeight="Bold" Foreground="#BBBBBB"/>
                         </Border>
                         <DataGrid Grid.Row="1" ItemsSource="{Binding Variables}"
                                   AutoGenerateColumns="False" IsReadOnly="True"
@@ -234,6 +260,19 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="80"/>
                                 <DataGridTextColumn Header="Value" Binding="{Binding ValueString}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="2" Padding="10,6" Background="{StaticResource BgSidebar}">
+                            <TextBlock Text="GLOBAL VARIABLES" FontSize="11" FontWeight="Bold" Foreground="#61AFEF"/>
+                        </Border>
+                        <DataGrid Grid.Row="3" ItemsSource="{Binding GlobalVariables}"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  Background="{StaticResource BgDark}" Foreground="#98C379"
+                                  BorderThickness="0" GridLinesVisibility="None" HeadersVisibility="Column">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="80"/>
+                                <DataGridTextColumn Header="Value" Binding="{Binding ValueString}" Width="80"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeName}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

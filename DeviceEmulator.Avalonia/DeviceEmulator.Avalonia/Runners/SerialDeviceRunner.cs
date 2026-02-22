@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Ports;
 using System.Text;
 using System.Threading;
@@ -28,6 +29,8 @@ namespace DeviceEmulator.Runners
         public event Action<Exception> ErrorOccurred;
         public event Action<bool> RunningStateChanged;
         public event Action<string> LogMessage;
+
+        public Dictionary<string, object?>? Globals { get; set; }
 
         public SerialDeviceRunner(SerialDeviceConfig config)
         {
@@ -139,7 +142,7 @@ namespace DeviceEmulator.Runners
                 // Generate and send response
                 if (_script.IsCompiled)
                 {
-                    var response = _script.GetResponse(message, buffer);
+                    var response = _script.GetResponse(message, buffer, Globals);
                     if (response != null)
                     {
                         SendResponse(response);

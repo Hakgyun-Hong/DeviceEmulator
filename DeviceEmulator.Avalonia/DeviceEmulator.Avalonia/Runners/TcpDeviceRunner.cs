@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -30,6 +31,8 @@ namespace DeviceEmulator.Runners
         public event Action<Exception> ErrorOccurred;
         public event Action<bool> RunningStateChanged;
         public event Action<string> LogMessage;
+
+        public Dictionary<string, object?>? Globals { get; set; }
 
         public TcpDeviceRunner(TcpDeviceConfig config)
         {
@@ -126,7 +129,7 @@ namespace DeviceEmulator.Runners
 
                                 if (_script.IsCompiled)
                                 {
-                                    var response = _script.GetResponse(hexMessage, receivedBytes);
+                                    var response = _script.GetResponse(hexMessage, receivedBytes, Globals);
                                     if (response != null)
                                     {
                                         byte[] bytesToSend = null;
@@ -190,7 +193,7 @@ namespace DeviceEmulator.Runners
                                     // Generate and send response
                                     if (_script.IsCompiled)
                                     {
-                                        var response = _script.GetResponse(message, _config.Encoding.GetBytes(message));
+                                        var response = _script.GetResponse(message, _config.Encoding.GetBytes(message), Globals);
                                         
                                         if (response != null)
                                         {

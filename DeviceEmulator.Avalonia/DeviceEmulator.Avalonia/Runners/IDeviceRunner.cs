@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using DeviceEmulator.Models;
 
@@ -44,6 +45,11 @@ namespace DeviceEmulator.Runners
         /// Raised when logging is needed.
         /// </summary>
         event Action<string> LogMessage;
+
+        /// <summary>
+        /// Shared global variables accessible from scripts and console.
+        /// </summary>
+        Dictionary<string, object?>? Globals { get; set; }
 
         /// <summary>
         /// Starts the device communication on a background thread.

@@ -160,6 +160,43 @@ namespace DeviceEmulator.Views
                 }
             }
         }
+
+        #region Console Tab Switching
+
+        private void OnOutputTabClick(object sender, TappedEventArgs e)
+        {
+            OutputPanel.IsVisible = true;
+            ConsolePanel.IsVisible = false;
+            // Update tab visual
+            ((OutputTab.Child as TextBlock)!).Foreground = new SolidColorBrush(Color.Parse("#BBBBBB"));
+            ((ConsoleTab.Child as TextBlock)!).Foreground = new SolidColorBrush(Color.Parse("#666666"));
+        }
+
+        private void OnConsoleTabClick(object sender, TappedEventArgs e)
+        {
+            OutputPanel.IsVisible = false;
+            ConsolePanel.IsVisible = true;
+            // Update tab visual
+            ((OutputTab.Child as TextBlock)!).Foreground = new SolidColorBrush(Color.Parse("#666666"));
+            ((ConsoleTab.Child as TextBlock)!).Foreground = new SolidColorBrush(Color.Parse("#BBBBBB"));
+            ConsoleInputBox.Focus();
+        }
+
+        private async void OnConsoleKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && ViewModel != null)
+            {
+                e.Handled = true;
+                await ViewModel.ExecuteConsoleCommandAsync();
+            }
+        }
+
+        private void OnResetConsole(object sender, RoutedEventArgs e)
+        {
+            ViewModel?.ResetConsole();
+        }
+
+        #endregion
     }
 
     /// <summary>
