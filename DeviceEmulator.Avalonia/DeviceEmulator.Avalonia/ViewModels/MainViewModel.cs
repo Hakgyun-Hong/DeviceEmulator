@@ -53,16 +53,33 @@ namespace DeviceEmulator.ViewModels
                 }
 
                 _selectedDevice = value;
+
+                // Sync Breakpoints to the newly selected device
+                Breakpoints.Clear();
+                DebugHelper.ClearBreakpoints();
+                if (_selectedDevice != null)
+                {
+                    ScriptText = _selectedDevice.Config.Script;
+                    foreach (var bp in _selectedDevice.Config.Breakpoints)
+                    {
+                        Breakpoints.Add(bp);
+                        DebugHelper.AddBreakpoint(bp);
+                    }
+                }
+                else
+                {
+                    ScriptText = "";
+                }
+
+                // Clear debug UI state when switching devices
+                CurrentDebugLine = 0;
+                Variables.Clear();
+
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasSelectedDevice));
                 OnPropertyChanged(nameof(SelectedDeviceLog));
                 OnPropertyChanged(nameof(IsSerialDevice));
                 OnPropertyChanged(nameof(IsTcpDevice));
-
-                if (_selectedDevice != null)
-                {
-                    ScriptText = _selectedDevice.Config.Script;
-                }
             }
         }
 
@@ -193,11 +210,20 @@ namespace DeviceEmulator.ViewModels
             {
                 Breakpoints.Remove(line);
                 DebugHelper.RemoveBreakpoint(line);
+                if (_selectedDevice != null)
+                {
+                    _selectedDevice.Config.Breakpoints.Remove(line);
+                }
             }
             else
             {
                 Breakpoints.Add(line);
                 DebugHelper.AddBreakpoint(line);
+                if (_selectedDevice != null)
+                {
+                    if (!_selectedDevice.Config.Breakpoints.Contains(line))
+                        _selectedDevice.Config.Breakpoints.Add(line);
+                }
             }
         }
 
@@ -440,7 +466,13 @@ namespace DeviceEmulator.ViewModels
             Dispatcher.UIThread.Post(() =>
             {
                 DebugState = mode;
-                
+
+                if (mode == DebugMode.Running)
+                {
+                    CurrentDebugLine = 0;
+                    Variables.Clear();
+                }
+
                 // Update IsPaused for devices
                 foreach (var category in Categories)
                 {

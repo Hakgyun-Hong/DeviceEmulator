@@ -92,6 +92,14 @@ namespace DebuggerLib
         }
 
         /// <summary>
+        /// Clear all user breakpoints.
+        /// </summary>
+        public static void ClearBreakpoints()
+        {
+            _userBreakpoints.Clear();
+        }
+
+        /// <summary>
         /// Notifies debugger about current execution state.
         /// Called from within the script at each breakpoint.
         /// </summary>

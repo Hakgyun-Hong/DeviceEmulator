@@ -45,6 +45,7 @@ namespace DeviceEmulator.Views
 
             // Handle text changes
             ScriptEditor.TextChanged += ScriptEditor_TextChanged;
+            ScriptEditor.KeyDown += ScriptEditor_KeyDown;
             
             DataContextChanged += OnDataContextChanged;
         }
@@ -103,6 +104,19 @@ namespace DeviceEmulator.Views
             
             // Update ViewModel
              _viewModel.ScriptText = ScriptEditor.Text ?? "";
+        }
+
+        private void ScriptEditor_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F9 && _viewModel != null)
+            {
+                var caretLine = ScriptEditor.TextArea.Caret.Line;
+                if (caretLine > 0)
+                {
+                    _viewModel.ToggleBreakpoint(caretLine);
+                    e.Handled = true;
+                }
+            }
         }
 
         private void UpdateScriptTextFromViewModel()

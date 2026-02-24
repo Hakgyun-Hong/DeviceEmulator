@@ -46,8 +46,7 @@ namespace DeviceEmulator.Models
         }
 
         /// <summary>
-        /// If true, data is treated as Hex/Binary.
-        /// Script receives 'bytes' variable and return value is treated as bytes (or Hex String).
+        /// Gets or sets whether Hex Mode is enabled for this device.
         /// </summary>
         public bool IsHexMode
         {
@@ -56,7 +55,12 @@ namespace DeviceEmulator.Models
         }
 
         /// <summary>
-        /// Device type identifier for UI display.
+        /// Saved breakpoints for this device's script.
+        /// </summary>
+        public System.Collections.Generic.List<int> Breakpoints { get; set; } = new();
+
+        /// <summary>
+        /// The type of device (e.g., Serial, TCP).
         /// </summary>
         public abstract string DeviceType { get; }
 
