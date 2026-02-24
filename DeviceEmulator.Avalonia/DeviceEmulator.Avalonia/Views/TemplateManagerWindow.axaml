@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:DeviceEmulator.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+        x:Class="DeviceEmulator.Views.TemplateManagerWindow"
+        x:DataType="vm:TemplateManagerViewModel"
+        Title="Manage Macro Templates" Width="800" Height="500"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E">
+    <Grid ColumnDefinitions="250,*" Margin="10">
+        <!-- Template List -->
+        <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Background="#252526" Padding="5">
+            <Grid RowDefinitions="*,Auto">
+                <ListBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Foreground="#D4D4D4"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,10,0,0">
+                    <Button Content="➕ Add" Command="{Binding AddTemplate}" Classes="primary"/>
+                    <Button Content="➖ Delete" Command="{Binding RemoveTemplate}" Classes="danger"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- Template Editor -->
+        <Border Grid.Column="1" Margin="10,0,0,0" IsVisible="{Binding SelectedTemplate, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+                <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                    <TextBlock Text="Name:" VerticalAlignment="Center" Width="80" Foreground="#D4D4D4"/>
+                    <TextBox Grid.Column="1" Text="{Binding SelectedTemplate.Name}" Background="#2D2D30"/>
+                </Grid>
+                
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                    <TextBlock Text="Description:" VerticalAlignment="Top" Width="80" Foreground="#D4D4D4"/>
+                    <TextBox Grid.Column="1" Text="{Binding SelectedTemplate.Description}" AcceptsReturn="True" MinHeight="60" TextWrapping="Wrap" Background="#2D2D30"/>
+                </Grid>
+                
+                <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                    <TextBlock Text="Arguments:" VerticalAlignment="Top" Width="80" Foreground="#D4D4D4"/>
+                    <StackPanel Grid.Column="1">
+                        <ItemsControl ItemsSource="{Binding SelectedTemplate.RequiredArguments}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,5">
+                                        <TextBox Text="{Binding .}" Background="#2D2D30"/>
+                                        <Button Grid.Column="1" Content="X" Command="{Binding $parent[Window].((vm:TemplateManagerViewModel)DataContext).RemoveArgument}" CommandParameter="{Binding .}" Classes="danger" Margin="5,0,0,0"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="➕ Add Argument" Command="{Binding AddArgument}" Classes="primary" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Grid>
+                
+                <Grid Grid.Row="3" Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="C# Script Reference:" Foreground="#D4D4D4" Margin="0,0,0,5"/>
+                    <TextBox Grid.Row="1" Text="{Binding SelectedTemplate.ScriptTemplate}" AcceptsReturn="True" TextWrapping="Wrap" 
+                             FontFamily="Consolas" Background="#2D2D30" MinHeight="100"/>
+                </Grid>
+                
+                <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0" Spacing="10">
+                    <Button Content="Save &amp; Close" Click="OnSaveAndClose" Classes="primary" FontSize="14" Padding="15,6"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

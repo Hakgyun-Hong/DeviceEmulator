@@ -147,8 +147,17 @@ namespace DeviceEmulator.Views
         
         // Button event handlers (kept for compatibility with XAML, though commands are preferred)
         public void OnAddSerialDevice(object sender, RoutedEventArgs e) => ViewModel?.AddSerialDevice();
-        public void OnAddTcpDevice(object sender, RoutedEventArgs e) => ViewModel?.AddTcpDevice();
-        public void OnRemoveDevice(object sender, RoutedEventArgs e) => ViewModel?.RemoveSelectedDevice();
+        private void OnAddTcpDevice(object? sender, RoutedEventArgs e)
+        {
+            _viewModel?.AddTcpDevice();
+        }
+
+        private void OnAddMacroDevice(object? sender, RoutedEventArgs e)
+        {
+            _viewModel?.AddMacroDevice();
+        }
+
+        private void OnRemoveDevice(object? sender, RoutedEventArgs e) => ViewModel?.RemoveSelectedDevice();
         public void OnToggleRunning(object sender, RoutedEventArgs e) => ViewModel?.ToggleSelectedDeviceRunning();
         public void OnCompileScript(object sender, RoutedEventArgs e)
         {

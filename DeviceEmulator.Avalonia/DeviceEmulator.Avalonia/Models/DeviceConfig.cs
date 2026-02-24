@@ -11,6 +11,7 @@ namespace DeviceEmulator.Models
     [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")] // Added this attribute
     [JsonDerivedType(typeof(SerialDeviceConfig), typeDiscriminator: "serial")] // Added this attribute
     [JsonDerivedType(typeof(TcpDeviceConfig), typeDiscriminator: "tcp")] // Added this attribute
+    [JsonDerivedType(typeof(MacroDeviceConfig), typeDiscriminator: "macro")]
     public abstract class DeviceConfig : INotifyPropertyChanged
     {
         private string _name; // Initializer removed as per instruction

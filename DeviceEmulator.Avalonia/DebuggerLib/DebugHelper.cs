@@ -141,6 +141,39 @@ namespace DebuggerLib
         }
 
         /// <summary>
+        /// Checks if execution should pause for Macro steps.
+        /// </summary>
+        public static void CheckMacroBreakpoint(bool isBreakpoint, params Var[] variables)
+        {
+            if (!_isEnabled) return;
+
+            InfoNotified?.Invoke(0, variables);
+
+            bool shouldPause = false;
+            if (_mode == DebugMode.Stepping)
+            {
+                shouldPause = true;
+            }
+            else if (isBreakpoint)
+            {
+                shouldPause = true;
+            }
+
+            if (shouldPause)
+            {
+                _mode = DebugMode.Paused;
+                _waitHandle.Reset();
+                ModeChanged?.Invoke(_mode);
+                Console.WriteLine($"[DEBUG] Paused at Macro step.");
+            }
+
+            if (_mode == DebugMode.Paused)
+            {
+                _waitHandle.Wait();
+            }
+        }
+
+        /// <summary>
         /// Start debugging. If step=true, pause at first line.
         /// </summary>
         public static void StartDebugging(bool step = false)

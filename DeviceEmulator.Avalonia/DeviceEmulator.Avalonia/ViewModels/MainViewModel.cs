@@ -80,12 +80,16 @@ namespace DeviceEmulator.ViewModels
                 OnPropertyChanged(nameof(SelectedDeviceLog));
                 OnPropertyChanged(nameof(IsSerialDevice));
                 OnPropertyChanged(nameof(IsTcpDevice));
+                OnPropertyChanged(nameof(IsMacroDevice));
+                OnPropertyChanged(nameof(IsCodeDevice));
             }
         }
 
         public bool HasSelectedDevice => _selectedDevice != null;
         public bool IsSerialDevice => _selectedDevice?.Config is SerialDeviceConfig;
         public bool IsTcpDevice => _selectedDevice?.Config is TcpDeviceConfig;
+        public bool IsMacroDevice => _selectedDevice?.Config is MacroDeviceConfig;
+        public bool IsCodeDevice => IsSerialDevice || IsTcpDevice;
 
         /// <summary>
         /// Script text in the editor.
@@ -243,6 +247,7 @@ namespace DeviceEmulator.ViewModels
         {
             Categories.Add(new DeviceCategoryViewModel("Serial Devices", "Serial"));
             Categories.Add(new DeviceCategoryViewModel("TCP Devices", "TCP"));
+            Categories.Add(new DeviceCategoryViewModel("Macro Scenarios", "Macro"));
 
             DebugHelper.InfoNotified += OnDebugInfoNotified;
             DebugHelper.ModeChanged += OnDebugModeChanged;
@@ -330,6 +335,8 @@ namespace DeviceEmulator.ViewModels
             config.Name = $"Serial Device {Categories[0].Devices.Count + 1}";
 
             var item = new DeviceTreeItemViewModel(config);
+            item.Globals = SharedGlobals;
+            item.ConsoleExecutor = _console.ExecuteAsync;
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[0].Devices.Add(item);
             SelectedDevice = item;
@@ -345,8 +352,26 @@ namespace DeviceEmulator.ViewModels
             };
 
             var item = new DeviceTreeItemViewModel(config);
+            item.Globals = SharedGlobals;
+            item.ConsoleExecutor = _console.ExecuteAsync;
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[1].Devices.Add(item);
+            SelectedDevice = item;
+            SaveSettings(); // Save
+        }
+
+        public void AddMacroDevice()
+        {
+            var config = new MacroDeviceConfig
+            {
+                Name = $"Macro Scenario {Categories[2].Devices.Count + 1}"
+            };
+
+            var item = new DeviceTreeItemViewModel(config);
+            item.Globals = SharedGlobals;
+            item.ConsoleExecutor = _console.ExecuteAsync;
+            item.PropertyChanged += OnDevicePropertyChanged;
+            Categories[2].Devices.Add(item);
             SelectedDevice = item;
             SaveSettings(); // Save
         }
@@ -422,6 +447,7 @@ namespace DeviceEmulator.ViewModels
             {
                 var item = new DeviceTreeItemViewModel(deviceConfig);
                 item.Globals = SharedGlobals;
+                item.ConsoleExecutor = _console.ExecuteAsync;
                 item.PropertyChanged += OnDevicePropertyChanged;
                 
                 if (deviceConfig is SerialDeviceConfig)
@@ -431,6 +457,10 @@ namespace DeviceEmulator.ViewModels
                 else if (deviceConfig is TcpDeviceConfig)
                 {
                     Categories[1].Devices.Add(item);
+                }
+                else if (deviceConfig is MacroDeviceConfig)
+                {
+                    Categories[2].Devices.Add(item);
                 }
             }
         }

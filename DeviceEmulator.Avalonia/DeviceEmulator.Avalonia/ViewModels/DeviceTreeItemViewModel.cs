@@ -100,6 +100,17 @@ namespace DeviceEmulator.ViewModels
         }
 
         /// <summary>
+        /// Gets the macro steps if the device is a Macro Scenario.
+        /// </summary>
+        public System.Collections.ObjectModel.ObservableCollection<MacroStep>? MacroSteps => (Config as MacroDeviceConfig)?.Steps;
+
+        /// <summary>
+        /// Available macro templates for binding in UI.
+        /// </summary>
+        public System.Collections.ObjectModel.ObservableCollection<MacroTemplate> AvailableTemplates { get; } 
+            = new System.Collections.ObjectModel.ObservableCollection<MacroTemplate>(DeviceEmulator.Services.MacroTemplateService.Load());
+
+        /// <summary>
         /// Shared global variables from the interactive console.
         /// Set by MainViewModel after device creation.
         /// </summary>
@@ -109,6 +120,19 @@ namespace DeviceEmulator.ViewModels
             set
             {
                 if (_runner != null) _runner.Globals = value;
+            }
+        }
+
+        /// <summary>
+        /// Delegate for executing C# blocks in the shared console (used by Macro scenarios).
+        /// Set by MainViewModel after device creation.
+        /// </summary>
+        public Func<string, System.Threading.Tasks.Task<string>>? ConsoleExecutor
+        {
+            get => _runner is MacroDeviceRunner mdr ? mdr.ConsoleExecutor : null;
+            set
+            {
+                if (_runner is MacroDeviceRunner mdr) mdr.ConsoleExecutor = value;
             }
         }
 
@@ -125,6 +149,19 @@ namespace DeviceEmulator.ViewModels
             else if (config is TcpDeviceConfig tcpConfig)
             {
                 _runner = new TcpDeviceRunner(tcpConfig);
+            }
+            else if (config is MacroDeviceConfig macroConfig)
+            {
+                _runner = new MacroDeviceRunner(macroConfig);
+                
+                // Initialize templates for binding
+                foreach (var step in macroConfig.Steps)
+                {
+                    if (step.StepType == MacroStepType.Template && !string.IsNullOrEmpty(step.Content))
+                    {
+                        step.SelectedTemplate = System.Linq.Enumerable.FirstOrDefault(AvailableTemplates, t => t.Id == step.Content);
+                    }
+                }
             }
 
             if (_runner != null)
@@ -203,6 +240,132 @@ namespace DeviceEmulator.ViewModels
         {
             _runner?.Dispose();
         }
+
+        #region Macro Step Management
+        private static MacroStep? _clipboardStep;
+
+        public void AddCodeStep() => AddCodeStep(null);
+        public void AddCodeStep(object? parentStep)
+        {
+            var collection = parentStep is MacroStep p ? p.Children : MacroSteps;
+            collection?.Add(new MacroStep { StepType = MacroStepType.Code, Content = "// New code block" });
+        }
+
+        public void AddTemplateStep() => AddTemplateStep(null);
+        public void AddTemplateStep(object? parentStep)
+        {
+            var collection = parentStep is MacroStep p ? p.Children : MacroSteps;
+            collection?.Add(new MacroStep { StepType = MacroStepType.Template });
+        }
+
+        public void AddIfStep() => AddIfStep(null);
+        public void AddIfStep(object? parentStep)
+        {
+            var collection = parentStep is MacroStep p ? p.Children : MacroSteps;
+            collection?.Add(new MacroStep { StepType = MacroStepType.If, Content = "true" });
+        }
+
+        public void AddWhileStep() => AddWhileStep(null);
+        public void AddWhileStep(object? parentStep)
+        {
+            var collection = parentStep is MacroStep p ? p.Children : MacroSteps;
+            collection?.Add(new MacroStep { StepType = MacroStepType.While, Content = "true" });
+        }
+
+        public void AddForStep() => AddForStep(null);
+        public void AddForStep(object? parentStep)
+        {
+            var collection = parentStep is MacroStep p ? p.Children : MacroSteps;
+            collection?.Add(new MacroStep { StepType = MacroStepType.For, Content = "int i = 0; i < 10; i++" });
+        }
+
+        private System.Collections.ObjectModel.ObservableCollection<MacroStep>? FindParentCollection(
+            System.Collections.ObjectModel.ObservableCollection<MacroStep>? list, MacroStep target)
+        {
+            if (list == null) return null;
+            if (list.Contains(target)) return list;
+            foreach (var step in list)
+            {
+                var found = FindParentCollection(step.Children, target);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        public void RemoveStep(object step)
+        {
+            if (step is MacroStep ms)
+            {
+                var coll = FindParentCollection(MacroSteps, ms);
+                coll?.Remove(ms);
+            }
+        }
+
+        public void CopyStep(object step)
+        {
+            if (step is MacroStep ms)
+            {
+                // Simple clone via serialization
+                var json = System.Text.Json.JsonSerializer.Serialize(ms);
+                _clipboardStep = System.Text.Json.JsonSerializer.Deserialize<MacroStep>(json);
+            }
+        }
+
+        public void CutStep(object step)
+        {
+            CopyStep(step);
+            RemoveStep(step);
+        }
+
+        public void PasteStep() => PasteStep(null);
+        public void PasteStep(object? parentStep)
+        {
+            if (_clipboardStep != null)
+            {
+                // Clone again so we can paste multiple times
+                var json = System.Text.Json.JsonSerializer.Serialize(_clipboardStep);
+                var newStep = System.Text.Json.JsonSerializer.Deserialize<MacroStep>(json);
+                if (newStep != null)
+                {
+                    newStep.Id = Guid.NewGuid().ToString(); // Ensure unique ID
+                    var collection = parentStep is MacroStep p ? p.Children : MacroSteps;
+                    collection?.Add(newStep);
+                }
+            }
+        }
+
+        public void MoveStepUp(object step)
+        {
+            if (step is MacroStep ms)
+            {
+                var coll = FindParentCollection(MacroSteps, ms);
+                if (coll != null)
+                {
+                    int index = coll.IndexOf(ms);
+                    if (index > 0)
+                    {
+                        coll.Move(index, index - 1);
+                    }
+                }
+            }
+        }
+
+        public void MoveStepDown(object step)
+        {
+            if (step is MacroStep ms)
+            {
+                var coll = FindParentCollection(MacroSteps, ms);
+                if (coll != null)
+                {
+                    int index = coll.IndexOf(ms);
+                    if (index >= 0 && index < coll.Count - 1)
+                    {
+                        coll.Move(index, index + 1);
+                    }
+                }
+            }
+        }
+        #endregion
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

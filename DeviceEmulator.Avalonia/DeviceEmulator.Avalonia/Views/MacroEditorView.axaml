@@ -1,0 +1,145 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:DeviceEmulator.ViewModels"
+             xmlns:models="clr-namespace:DeviceEmulator.Models"
+             xmlns:converters="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
+             x:Class="DeviceEmulator.Views.MacroEditorView"
+             x:DataType="viewModels:DeviceTreeItemViewModel">
+    
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="models:MacroStep">
+            <Border Background="#1E1E1E" CornerRadius="6" Margin="0,0,0,10" Padding="0" 
+                    BorderThickness="1" BorderBrush="#333333">
+                <Grid ColumnDefinitions="14,*">
+                    <!-- Progress / Breakpoint Bar -->
+                    <Border Grid.Column="0" Background="#252526" CornerRadius="5,0,0,5" BorderThickness="0,0,1,0" BorderBrush="#333333">
+                        <StackPanel VerticalAlignment="Top" Margin="0,10,0,0" HorizontalAlignment="Center" Spacing="5">
+                            <CheckBox IsChecked="{Binding IsBreakpoint}" ToolTip.Tip="Toggle Breakpoint" Cursor="Hand" Margin="0" MinWidth="0" MinHeight="0" Padding="0">
+                                <CheckBox.Template>
+                                    <ControlTemplate>
+                                        <Ellipse Width="10" Height="10" Fill="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    </ControlTemplate>
+                                </CheckBox.Template>
+                                <CheckBox.Styles>
+                                    <Style Selector="CheckBox:checked /template/ Ellipse">
+                                        <Setter Property="Fill" Value="#E51400"/>
+                                    </Style>
+                                    <Style Selector="CheckBox:unchecked /template/ Ellipse">
+                                        <Setter Property="Fill" Value="#444444"/>
+                                    </Style>
+                                </CheckBox.Styles>
+                            </CheckBox>
+                            <Ellipse Width="6" Height="6" Fill="#4CAF50" IsVisible="{Binding IsExecuting}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="10">
+                        <!-- Step Header -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding StepType}" FontWeight="Bold" Foreground="#61AFEF" FontSize="14" VerticalAlignment="Center"/>
+                                <CheckBox Content="Enable" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" FontSize="12"/>
+                                
+                                <Border Background="#4CAF50" CornerRadius="4" Padding="6,2" 
+                                        IsVisible="{Binding IsExecuting}" VerticalAlignment="Center" Margin="5,0,0,0">
+                                    <TextBlock Text="▶ RUNNING" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                                <Button Content="Copy" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).CopyStep}" CommandParameter="{Binding}" Background="#333333" Padding="6,2" FontSize="11"/>
+                                <Button Content="Cut" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).CutStep}" CommandParameter="{Binding}" Background="#333333" Padding="6,2" FontSize="11"/>
+                                <Button Content="↑" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).MoveStepUp}" CommandParameter="{Binding}" Background="#333333" Padding="6,2" FontSize="11"/>
+                                <Button Content="↓" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).MoveStepDown}" CommandParameter="{Binding}" Background="#333333" Padding="6,2" FontSize="11"/>
+                                <Button Content="X" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).RemoveStep}" CommandParameter="{Binding}" Background="#D32F2F" Padding="6,2" FontSize="11" Foreground="White" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Step Content -->
+                        <Border Grid.Row="1" Margin="0,10,0,0">
+                            <Grid>
+                                <!-- Code Editor -->
+                                <TextBox IsVisible="{Binding IsCodeStep}" Text="{Binding Content}" AcceptsReturn="True" TextWrapping="Wrap" 
+                                         MinHeight="60" FontFamily="Consolas, Menlo, monospace" FontSize="13" 
+                                         Background="#252526" Foreground="#D4D4D4" BorderThickness="0"/>
+                                
+                                <!-- Structural Editor (If/While/For condition) -->
+                                <TextBox IsVisible="{Binding IsStructuralStep}" Text="{Binding Content}" AcceptsReturn="True" TextWrapping="Wrap" 
+                                         MinHeight="30" FontFamily="Consolas, Menlo, monospace" FontSize="13" 
+                                         Background="#252526" Foreground="#D4D4D4" BorderThickness="0" Watermark="Condition / Loop Iteration"/>
+                                         
+                                <!-- Template Editor -->
+                                <StackPanel IsVisible="{Binding IsTemplateStep}" Spacing="10">
+                                    <ComboBox ItemsSource="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).AvailableTemplates}" 
+                                              SelectedItem="{Binding SelectedTemplate}" 
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    
+                                    <TextBlock Text="{Binding SelectedTemplate.Description}" TextWrapping="Wrap" Foreground="#A0A0A0" FontSize="12" IsVisible="{Binding SelectedTemplate, Converter={x:Static converters:ObjectConverters.IsNotNull}}"/>
+                                    
+                                    <ItemsControl ItemsSource="{Binding DisplayArguments}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid ColumnDefinitions="120,*" Margin="0,0,0,5">
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="#D4D4D4" FontSize="12"/>
+                                                    <TextBox Grid.Column="1" Text="{Binding Value}" Background="#252526" Foreground="#D4D4D4" BorderThickness="1" BorderBrush="#3C3C3C" FontSize="12"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Structural Children & Toolbar -->
+                        <StackPanel Grid.Row="2" IsVisible="{Binding IsStructuralStep}" Margin="0,5,0,0">
+                            <!-- Left indented line for nesting -->
+                            <Border BorderThickness="2,0,0,0" BorderBrush="#333333" Margin="5,5,0,5" Padding="15,0,0,0">
+                                <StackPanel>
+                                    <ItemsControl ItemsSource="{Binding Children}" />
+                                    
+                                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                                        <Button Content="➕ Code" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).AddCodeStep}" CommandParameter="{Binding}" FontSize="10" Classes="primary" Padding="6,3"/>
+                                        <Button Content="➕ Template" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).AddTemplateStep}" CommandParameter="{Binding}" FontSize="10" Classes="primary" Padding="6,3"/>
+                                        <Button Content="➕ If" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).AddIfStep}" CommandParameter="{Binding}" FontSize="10" Classes="primary" Padding="6,3"/>
+                                        <Button Content="➕ While" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).AddWhileStep}" CommandParameter="{Binding}" FontSize="10" Classes="primary" Padding="6,3"/>
+                                        <Button Content="➕ For" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).AddForStep}" CommandParameter="{Binding}" FontSize="10" Classes="primary" Padding="6,3"/>
+                                        <Button Content="📋 Paste Here" Command="{Binding $parent[UserControl].((viewModels:DeviceTreeItemViewModel)DataContext).PasteStep}" CommandParameter="{Binding}" FontSize="10" Classes="secondary" Padding="6,3" Margin="10,0,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+    
+    <Grid RowDefinitions="Auto,*">
+        <!-- Toolbar -->
+        <Border Background="#2D2D30" Padding="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="➕ Code" Command="{Binding AddCodeStep}" Classes="primary" FontSize="12"/>
+                <Button Content="➕ Template" Command="{Binding AddTemplateStep}" Classes="primary" FontSize="12"/>
+                <Button Content="➕ If" Command="{Binding AddIfStep}" Classes="primary" FontSize="12"/>
+                <Button Content="➕ While" Command="{Binding AddWhileStep}" Classes="primary" FontSize="12"/>
+                <Button Content="➕ For" Command="{Binding AddForStep}" Classes="primary" FontSize="12"/>
+                <Button Content="📋 Paste" Command="{Binding PasteStep}" Classes="secondary" FontSize="12" Margin="10,0,0,0"/>
+                <Button Content="⚙️ Manage Templates" Click="OnManageTemplates" Classes="secondary" FontSize="12" Margin="20,0,0,0"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- Steps List -->
+        <ScrollViewer Grid.Row="1" Margin="10">
+            <ItemsControl ItemsSource="{Binding MacroSteps}" />
+        </ScrollViewer>
+    </Grid>
+</UserControl>
