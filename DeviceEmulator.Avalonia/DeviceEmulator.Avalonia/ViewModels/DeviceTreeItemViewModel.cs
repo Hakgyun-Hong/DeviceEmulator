@@ -104,6 +104,9 @@ namespace DeviceEmulator.ViewModels
         /// </summary>
         public System.Collections.ObjectModel.ObservableCollection<MacroStep>? MacroSteps => (Config as MacroDeviceConfig)?.Steps;
 
+        public bool IsMacroDevice => Config is MacroDeviceConfig;
+        public bool IsCodeDevice => Config is SerialDeviceConfig || Config is TcpDeviceConfig;
+
         /// <summary>
         /// Available macro templates for binding in UI.
         /// </summary>

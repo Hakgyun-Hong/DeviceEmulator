@@ -147,7 +147,7 @@
                     </AvaloniaEdit:TextEditor>
 
                     <!-- Macro Editor View -->
-                    <views:MacroEditorView Grid.Row="1" DataContext="{Binding SelectedDevice}" IsVisible="{Binding IsMacroDevice}"/>
+                    <views:MacroEditorView Grid.Row="1" DataContext="{Binding SelectedDevice}" IsVisible="{Binding IsMacroDevice, FallbackValue=False}"/>
                 </Grid>
 
                 <!-- Splitter -->
