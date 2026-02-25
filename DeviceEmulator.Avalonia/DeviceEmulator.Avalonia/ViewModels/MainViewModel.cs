@@ -280,7 +280,7 @@ namespace DeviceEmulator.ViewModels
         /// <summary>
         /// Shared globals dictionary for device scripts.
         /// </summary>
-        public Dictionary<string, object?> SharedGlobals => _console.SharedGlobals;
+        public SharedDictionary SharedGlobals => _console.SharedGlobals;
 
         /// <summary>
         /// Execute the current console input.

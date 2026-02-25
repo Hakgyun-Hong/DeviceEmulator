@@ -23,14 +23,13 @@ namespace DeviceEmulator.Runners
 
         public DeviceConfig Config => _config;
         public bool IsRunning => _isRunning;
+        public SharedDictionary? Globals { get; set; }
 
         public event Action<string> MessageReceived;
         public event Action<string> MessageSent;
         public event Action<Exception> ErrorOccurred;
         public event Action<bool> RunningStateChanged;
         public event Action<string> LogMessage;
-
-        public Dictionary<string, object?>? Globals { get; set; }
 
         public SerialDeviceRunner(SerialDeviceConfig config)
         {

@@ -158,6 +158,9 @@ namespace DeviceEmulator.Scripting
             // Add DebuggerLib
             references.Add(MetadataReference.CreateFromFile(typeof(DebuggerLib.DebugHelper).Assembly.Location));
 
+            // Add Microsoft.CSharp (for dynamic support)
+            references.Add(MetadataReference.CreateFromFile(typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly.Location));
+
             return references;
         }
 
@@ -168,7 +171,7 @@ namespace DeviceEmulator.Scripting
         /// Executes the compiled script with the given message.
         /// Returns string or byte[] (as object).
         /// </summary>
-        public object GetResponse(string message, byte[] bytes, Dictionary<string, object?> globals = null)
+        public object GetResponse(string message, byte[] bytes, SharedDictionary globals = null)
         {
             if (!IsCompiled || _scriptInstance == null || _executeMethod == null)
             {
@@ -177,7 +180,7 @@ namespace DeviceEmulator.Scripting
 
             try
             {
-                var result = _executeMethod.Invoke(_scriptInstance, new object[] { message, bytes, globals ?? new Dictionary<string, object?>() });
+                var result = _executeMethod.Invoke(_scriptInstance, new object[] { message, bytes, globals ?? new SharedDictionary() });
                 return result;
             }
             catch (Exception ex)
@@ -200,12 +203,13 @@ namespace DeviceEmulator.Scripting
             sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine("using System.Linq;");
             sb.AppendLine("using DebuggerLib;");
+            sb.AppendLine("using DeviceEmulator.Scripting;");
             sb.AppendLine();
 
             // Helper class for persistent variables
             sb.AppendLine("class CustomDict");
             sb.AppendLine("{");
-            sb.AppendLine("    private Dictionary<string, object> variables = new Dictionary<string, object>();");
+            sb.AppendLine("    private SharedDictionary variables = new SharedDictionary();");
             sb.AppendLine("    public object this[string key]");
             sb.AppendLine("    {");
             sb.AppendLine("        get { return variables.ContainsKey(key) ? variables[key] : null; }");
@@ -241,7 +245,7 @@ namespace DeviceEmulator.Scripting
             sb.AppendLine("        return bytes;");
             sb.AppendLine("    }");
             sb.AppendLine();
-            sb.AppendLine("    public object Execute(string message, byte[] bytes, Dictionary<string, object> globals)");
+            sb.AppendLine("    public object Execute(string message, byte[] bytes, dynamic globals)");
             sb.AppendLine("    {");
             
             // User's script code

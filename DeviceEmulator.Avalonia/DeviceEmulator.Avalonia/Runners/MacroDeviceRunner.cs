@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DeviceEmulator.Models;
 using DeviceEmulator.Services;
+using DeviceEmulator.Scripting;
 
 namespace DeviceEmulator.Runners
 {
@@ -28,7 +29,7 @@ namespace DeviceEmulator.Runners
         public event Action<bool>? RunningStateChanged;
         public event Action<string>? LogMessage;
 
-        public Dictionary<string, object?>? Globals { get; set; }
+        public SharedDictionary? Globals { get; set; }
 
         /// <summary>
         /// Delegate to execute a script block in the shared interactive console.

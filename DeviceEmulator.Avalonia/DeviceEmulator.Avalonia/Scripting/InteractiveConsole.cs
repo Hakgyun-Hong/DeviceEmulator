@@ -14,7 +14,7 @@ namespace DeviceEmulator.Scripting
         /// <summary>
         /// Shared global variables accessible from both console and device scripts.
         /// </summary>
-        public Dictionary<string, object?> globals { get; set; } = new();
+        public dynamic globals { get; set; } = new SharedDictionary();
     }
 
     /// <summary>
@@ -30,7 +30,7 @@ namespace DeviceEmulator.Scripting
         /// <summary>
         /// Shared global variables dictionary. Device scripts can read/write these.
         /// </summary>
-        public Dictionary<string, object?> SharedGlobals => _globals.globals;
+        public SharedDictionary SharedGlobals => (SharedDictionary)_globals.globals;
 
         /// <summary>
         /// Event raised when variables change after execution.
@@ -40,13 +40,15 @@ namespace DeviceEmulator.Scripting
         public InteractiveConsole()
         {
             _globals = new ConsoleGlobals();
+            ((SharedDictionary)_globals.globals).VariablesChanged += () => VariablesChanged?.Invoke();
 
             _options = ScriptOptions.Default
                 .AddReferences(
                     typeof(object).Assembly,
                     typeof(Console).Assembly,
                     typeof(System.Linq.Enumerable).Assembly,
-                    typeof(System.Collections.Generic.List<>).Assembly
+                    typeof(System.Collections.Generic.List<>).Assembly,
+                    typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly
                 )
                 .AddImports(
                     "System",
@@ -77,9 +79,6 @@ namespace DeviceEmulator.Scripting
                     _state = await _state.ContinueWithAsync<object>(code);
                 }
 
-                // Sync script-defined variables into globals dictionary
-                SyncVariables();
-
                 string result = "";
                 if (_state.ReturnValue != null)
                 {
@@ -98,30 +97,13 @@ namespace DeviceEmulator.Scripting
         }
 
         /// <summary>
-        /// Syncs variables from ScriptState into the shared globals dictionary.
-        /// </summary>
-        private void SyncVariables()
-        {
-            if (_state == null) return;
-
-            foreach (var v in _state.Variables)
-            {
-                _globals.globals[v.Name] = v.Value;
-            }
-
-            VariablesChanged?.Invoke();
-        }
-
-        /// <summary>
         /// Gets all current variables (name, value, type).
         /// </summary>
         public IEnumerable<(string Name, object? Value, Type Type)> GetVariables()
         {
-            if (_state == null) yield break;
-
-            foreach (var v in _state.Variables)
+            foreach (var kvp in _globals.globals)
             {
-                yield return (v.Name, v.Value, v.Type);
+                yield return (kvp.Key, kvp.Value, kvp.Value?.GetType() ?? typeof(object));
             }
         }
 

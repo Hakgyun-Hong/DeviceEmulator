@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using DeviceEmulator.Models;
 using DeviceEmulator.Runners;
 using Avalonia.Media;
+using DeviceEmulator.Scripting;
 
 namespace DeviceEmulator.ViewModels
 {
@@ -117,7 +118,7 @@ namespace DeviceEmulator.ViewModels
         /// Shared global variables from the interactive console.
         /// Set by MainViewModel after device creation.
         /// </summary>
-        public Dictionary<string, object?>? Globals
+        public SharedDictionary? Globals
         {
             get => _runner?.Globals;
             set
