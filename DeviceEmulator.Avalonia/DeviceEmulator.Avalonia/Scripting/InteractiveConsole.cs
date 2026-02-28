@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 
@@ -99,12 +100,24 @@ namespace DeviceEmulator.Scripting
         /// <summary>
         /// Gets all current variables (name, value, type).
         /// </summary>
+        /// <summary>
+        /// Gets all current variables (name, value, type).
+        /// </summary>
         public IEnumerable<(string Name, object? Value, Type Type)> GetVariables()
         {
             foreach (var kvp in _globals.globals)
             {
                 yield return (kvp.Key, kvp.Value, kvp.Value?.GetType() ?? typeof(object));
             }
+        }
+
+        /// <summary>
+        /// Checks if a local script variable exists in the current Roslyn state.
+        /// </summary>
+        public bool HasVariable(string name)
+        {
+            if (_state == null) return false;
+            return _state.Variables.Any(v => v.Name == name);
         }
 
         /// <summary>

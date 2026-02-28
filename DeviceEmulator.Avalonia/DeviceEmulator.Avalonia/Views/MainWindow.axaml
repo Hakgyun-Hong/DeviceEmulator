@@ -264,11 +264,12 @@
                         </Border>
                         <DataGrid Grid.Row="1" ItemsSource="{Binding Variables}"
                                   AutoGenerateColumns="False" IsReadOnly="True"
+                                  CanUserResizeColumns="True" CanUserReorderColumns="False"
                                   Background="{StaticResource BgDark}" Foreground="#CCCCCC"
                                   BorderThickness="0" GridLinesVisibility="None" HeadersVisibility="Column">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="80"/>
-                                <DataGridTextColumn Header="Value" Binding="{Binding ValueString}" Width="*"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="80"/>
+                                <DataGridTextColumn Header="Value" Binding="{Binding ValueString}" Width="3*" MinWidth="100"/>
                             </DataGrid.Columns>
                         </DataGrid>
                         <Border Grid.Row="2" Padding="10,6" Background="{StaticResource BgSidebar}">
@@ -276,12 +277,13 @@
                         </Border>
                         <DataGrid Grid.Row="3" ItemsSource="{Binding GlobalVariables}"
                                   AutoGenerateColumns="False" IsReadOnly="True"
+                                  CanUserResizeColumns="True" CanUserReorderColumns="False"
                                   Background="{StaticResource BgDark}" Foreground="#98C379"
                                   BorderThickness="0" GridLinesVisibility="None" HeadersVisibility="Column">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="80"/>
-                                <DataGridTextColumn Header="Value" Binding="{Binding ValueString}" Width="80"/>
-                                <DataGridTextColumn Header="Type" Binding="{Binding TypeName}" Width="*"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="80"/>
+                                <DataGridTextColumn Header="Value" Binding="{Binding ValueString}" Width="2*" MinWidth="80"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeName}" Width="1*" MinWidth="60"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

@@ -140,6 +140,19 @@ namespace DeviceEmulator.ViewModels
             }
         }
 
+        /// <summary>
+        /// Delegate for checking variables in the shared console (used by Macro scenarios).
+        /// Set by MainViewModel after device creation.
+        /// </summary>
+        public Func<string, bool>? ConsoleHasVariable
+        {
+            get => _runner is MacroDeviceRunner mdr ? mdr.ConsoleHasVariable : null;
+            set
+            {
+                if (_runner is MacroDeviceRunner mdr) mdr.ConsoleHasVariable = value;
+            }
+        }
+
         public DeviceTreeItemViewModel(DeviceConfig config)
         {
             Config = config ?? throw new ArgumentNullException(nameof(config));

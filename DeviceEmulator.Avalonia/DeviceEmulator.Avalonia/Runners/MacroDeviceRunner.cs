@@ -36,6 +36,11 @@ namespace DeviceEmulator.Runners
         /// </summary>
         public Func<string, Task<string>>? ConsoleExecutor { get; set; }
 
+        /// <summary>
+        /// Delegate to check if a local variable exists in the shared interactive console.
+        /// </summary>
+        public Func<string, bool>? ConsoleHasVariable { get; set; }
+
         public MacroDeviceRunner(MacroDeviceConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -132,15 +137,61 @@ namespace DeviceEmulator.Runners
                         var parts = step.Content.Split(';');
                         if (parts.Length == 3)
                         {
-                            await ConsoleExecutor!.Invoke(parts[0]); // Init
+                            // We faced a known issue with Roslyn's ContinueWithAsync:
+                            // Top-level variable declarations like `int i = 0` are not always
+                            // properly visible to subsequent expressions like `i < 10` depending on the script context.
+                            // To guarantee For loops work flawlessly, we simply rewrite the `var = value`
+                            // statements into `globals.var = value` behind the scenes!
+
+                            string initStatement = parts[0].Trim();
+                            string condExpr = parts[1].Trim();
+                            string stepExpr = parts[2].Trim();
+
+                            // 1. Convert `int i = 0` to `globals.i = 0`
+                            var initTokens = initStatement.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            string loopVarName = "";
+                            if (initTokens.Length >= 3) 
+                            {
+                                if (initTokens[1] == "=")
+                                {
+                                    // E.g., "i = 0" -> ["i", "=", "0"]
+                                    loopVarName = initTokens[0];
+                                    initStatement = $"globals.{loopVarName} = {string.Join(" ", initTokens.Skip(2))}";
+                                }
+                                else if (initTokens.Length >= 4 && initTokens[2] == "=")
+                                {
+                                    // E.g., "int i = 0" -> ["int", "i", "=", "0"]
+                                    loopVarName = initTokens[1];
+                                    initStatement = $"globals.{loopVarName} = {string.Join(" ", Enumerable.Skip(initTokens, 3))}";
+                                }
+                            }
+
+                            // 2. Convert `i < 10` to `globals.i < 10`
+                            if (!string.IsNullOrEmpty(loopVarName))
+                            {
+                                // Very basic string replacement (works for standard "i < 10" and "i++" uses)
+                                condExpr = Regex.Replace(condExpr, $@"\b{Regex.Escape(loopVarName)}\b", $"globals.{loopVarName}");
+                                stepExpr = Regex.Replace(stepExpr, $@"\b{Regex.Escape(loopVarName)}\b", $"globals.{loopVarName}");
+                            }
+
+                            // Try to initialize
+                            await ConsoleExecutor!.Invoke(initStatement); 
+
                             while (true)
                             {
                                 if (_cts?.Token.IsCancellationRequested == true) break;
-                                var resultStr = await ConsoleExecutor!.Invoke($"return ({parts[1]});"); // Condition
-                                if (bool.TryParse(resultStr?.Trim(), out bool condition) && condition)
+                                var resultStr = await ConsoleExecutor!.Invoke($"return ({condExpr});"); // check condition
+                                
+                                bool condition = false;
+                                if (!string.IsNullOrEmpty(resultStr) && !resultStr.StartsWith("❌"))
+                                {
+                                    bool.TryParse(resultStr.Trim(), out condition);
+                                }
+                                
+                                if (condition)
                                 {
                                     await ExecuteStepsAsync(step.Children, templates);
-                                    await ConsoleExecutor!.Invoke(parts[2]); // Step/Increment
+                                    await ConsoleExecutor!.Invoke(stepExpr); // increment
                                 }
                                 else break;
                             }

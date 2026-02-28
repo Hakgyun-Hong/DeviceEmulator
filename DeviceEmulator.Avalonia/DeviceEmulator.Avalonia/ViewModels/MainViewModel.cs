@@ -337,6 +337,7 @@ namespace DeviceEmulator.ViewModels
             var item = new DeviceTreeItemViewModel(config);
             item.Globals = SharedGlobals;
             item.ConsoleExecutor = _console.ExecuteAsync;
+            item.ConsoleHasVariable = _console.HasVariable;
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[0].Devices.Add(item);
             SelectedDevice = item;
@@ -354,6 +355,7 @@ namespace DeviceEmulator.ViewModels
             var item = new DeviceTreeItemViewModel(config);
             item.Globals = SharedGlobals;
             item.ConsoleExecutor = _console.ExecuteAsync;
+            item.ConsoleHasVariable = _console.HasVariable;
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[1].Devices.Add(item);
             SelectedDevice = item;
@@ -370,6 +372,7 @@ namespace DeviceEmulator.ViewModels
             var item = new DeviceTreeItemViewModel(config);
             item.Globals = SharedGlobals;
             item.ConsoleExecutor = _console.ExecuteAsync;
+            item.ConsoleHasVariable = _console.HasVariable;
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[2].Devices.Add(item);
             SelectedDevice = item;
@@ -448,6 +451,7 @@ namespace DeviceEmulator.ViewModels
                 var item = new DeviceTreeItemViewModel(deviceConfig);
                 item.Globals = SharedGlobals;
                 item.ConsoleExecutor = _console.ExecuteAsync;
+                item.ConsoleHasVariable = _console.HasVariable;
                 item.PropertyChanged += OnDevicePropertyChanged;
                 
                 if (deviceConfig is SerialDeviceConfig)
