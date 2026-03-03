@@ -153,6 +153,15 @@ namespace DeviceEmulator.ViewModels
             }
         }
 
+        /// <summary>
+        /// Fires after each macro step completes. Subscribed by MainViewModel for variable refresh.
+        /// </summary>
+        public event Action? MacroStepExecuted
+        {
+            add { if (_runner is MacroDeviceRunner mdr) mdr.StepExecuted += value; }
+            remove { if (_runner is MacroDeviceRunner mdr) mdr.StepExecuted -= value; }
+        }
+
         public DeviceTreeItemViewModel(DeviceConfig config)
         {
             Config = config ?? throw new ArgumentNullException(nameof(config));

@@ -29,6 +29,12 @@ namespace DeviceEmulator.Runners
         public event Action<bool>? RunningStateChanged;
         public event Action<string>? LogMessage;
 
+        /// <summary>
+        /// Raised after each macro step completes. Used by MainViewModel to trigger
+        /// an immediate variable panel refresh (like VS step-over behaviour).
+        /// </summary>
+        public event Action? StepExecuted;
+
         public SharedDictionary? Globals { get; set; }
 
         /// <summary>
@@ -234,6 +240,8 @@ namespace DeviceEmulator.Runners
                 finally
                 {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => step.IsExecuting = false);
+                    // Notify after each step so the variable viewer can refresh
+                    StepExecuted?.Invoke();
                 }
             }
         }

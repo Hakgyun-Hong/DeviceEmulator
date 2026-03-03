@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using DeviceEmulator.Models;
@@ -27,6 +28,10 @@ namespace DeviceEmulator.ViewModels
         private string _consoleInput = "";
         private string _consoleOutput = "";
         private readonly InteractiveConsole _console = new();
+
+        // --- Throttled Variable Refresh ---
+        private volatile bool _globalVariablesDirty = false;
+        private readonly System.Threading.Timer _variableRefreshTimer;
 
         /// <summary>
         /// Shared global variables from the interactive console.
@@ -254,6 +259,20 @@ namespace DeviceEmulator.ViewModels
 
             _console.VariablesChanged += OnConsoleVariablesChanged;
 
+            // Refresh global variables every 500ms (throttle — avoids per-mutation UI rebuilds)
+            _variableRefreshTimer = new System.Threading.Timer(
+                _ =>
+                {
+                    if (_globalVariablesDirty)
+                    {
+                        _globalVariablesDirty = false;
+                        FlushGlobalVariablesToUI();
+                    }
+                },
+                null,
+                dueTime: 500,
+                period: 500);
+
             LoadSettings(); // Load saved devices
         }
 
@@ -298,6 +317,9 @@ namespace DeviceEmulator.ViewModels
             {
                 ConsoleOutput += $"{result}{Environment.NewLine}";
             }
+
+            // Force-refresh immediately after user types in the console
+            ForceRefreshGlobalVariables();
         }
 
         /// <summary>
@@ -311,6 +333,22 @@ namespace DeviceEmulator.ViewModels
         }
 
         private void OnConsoleVariablesChanged()
+        {
+            // Mark dirty — the 500ms timer will flush the actual UI update
+            _globalVariablesDirty = true;
+        }
+
+        /// <summary>
+        /// Immediately rebuilds the GlobalVariables panel on the UI thread.
+        /// Call this only on important events (console input, breakpoint, step transition).
+        /// </summary>
+        private void ForceRefreshGlobalVariables()
+        {
+            _globalVariablesDirty = false;
+            FlushGlobalVariablesToUI();
+        }
+
+        private void FlushGlobalVariablesToUI()
         {
             Dispatcher.UIThread.Post(() =>
             {
@@ -373,6 +411,7 @@ namespace DeviceEmulator.ViewModels
             item.Globals = SharedGlobals;
             item.ConsoleExecutor = _console.ExecuteAsync;
             item.ConsoleHasVariable = _console.HasVariable;
+            item.MacroStepExecuted += ForceRefreshGlobalVariables;
             item.PropertyChanged += OnDevicePropertyChanged;
             Categories[2].Devices.Add(item);
             SelectedDevice = item;
@@ -464,6 +503,7 @@ namespace DeviceEmulator.ViewModels
                 }
                 else if (deviceConfig is MacroDeviceConfig)
                 {
+                    item.MacroStepExecuted += ForceRefreshGlobalVariables;
                     Categories[2].Devices.Add(item);
                 }
             }
@@ -493,6 +533,8 @@ namespace DeviceEmulator.ViewModels
                 CurrentDebugLine = lineNumber;
                 UpdateVariables(variables);
             });
+            // Breakpoint hit — force global variables refresh too (like VS pausing)
+            ForceRefreshGlobalVariables();
         }
 
         private void OnDebugModeChanged(DebugMode mode)
