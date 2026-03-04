@@ -835,17 +835,105 @@ return """"").Trim();
 
         // ─── Input (Windows) ───
 
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        [DllImport("user32.dll")]
+        private static extern short VkKeyScan(char ch);
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+
         private static string SendKeys_Win(string keys)
         {
-            return "SendKeys on Windows requires System.Windows.Forms reference.";
+            try
+            {
+                // Handle special key sequences like SharpRPA's SendKeys
+                var specialKeys = new Dictionary<string, byte>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "{ENTER}", 0x0D }, { "{TAB}", 0x09 }, { "{ESC}", 0x1B },
+                    { "{DELETE}", 0x2E }, { "{BACKSPACE}", 0x08 }, { "{BS}", 0x08 },
+                    { "{UP}", 0x26 }, { "{DOWN}", 0x28 }, { "{LEFT}", 0x25 }, { "{RIGHT}", 0x27 },
+                    { "{HOME}", 0x24 }, { "{END}", 0x23 },
+                    { "{PGUP}", 0x21 }, { "{PGDN}", 0x22 },
+                    { "{F1}", 0x70 }, { "{F2}", 0x71 }, { "{F3}", 0x72 }, { "{F4}", 0x73 },
+                    { "{F5}", 0x74 }, { "{F6}", 0x75 }, { "{F7}", 0x76 }, { "{F8}", 0x77 },
+                    { "{F9}", 0x78 }, { "{F10}", 0x79 }, { "{F11}", 0x7A }, { "{F12}", 0x7B },
+                    { "{INSERT}", 0x2D }, { "{INS}", 0x2D },
+                    { "{CAPSLOCK}", 0x14 }, { "{NUMLOCK}", 0x90 }, { "{SCROLLLOCK}", 0x91 },
+                    { "{PRTSC}", 0x2C },
+                };
+
+                int i = 0;
+                while (i < keys.Length)
+                {
+                    if (keys[i] == '{')
+                    {
+                        int end = keys.IndexOf('}', i);
+                        if (end > i)
+                        {
+                            string token = keys.Substring(i, end - i + 1);
+                            if (specialKeys.TryGetValue(token, out byte vk))
+                            {
+                                byte scan = (byte)MapVirtualKey(vk, 0);
+                                keybd_event(vk, scan, 0, UIntPtr.Zero);
+                                keybd_event(vk, scan, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                            }
+                            i = end + 1;
+                            continue;
+                        }
+                    }
+
+                    // Modifier keys: + (Shift), ^ (Ctrl), % (Alt)
+                    if (keys[i] == '+' || keys[i] == '^' || keys[i] == '%')
+                    {
+                        byte modVk = keys[i] == '+' ? (byte)0x10 : keys[i] == '^' ? (byte)0x11 : (byte)0x12;
+                        keybd_event(modVk, 0, 0, UIntPtr.Zero);
+                        if (i + 1 < keys.Length)
+                        {
+                            i++;
+                            SendSingleChar(keys[i]);
+                        }
+                        keybd_event(modVk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        i++;
+                        continue;
+                    }
+
+                    SendSingleChar(keys[i]);
+                    i++;
+                }
+                return $"Sent keys: {keys}";
+            }
+            catch (Exception ex)
+            {
+                return $"SendKeys error: {ex.Message}";
+            }
+        }
+
+        private static void SendSingleChar(char c)
+        {
+            short vkResult = VkKeyScan(c);
+            byte vk = (byte)(vkResult & 0xFF);
+            bool needShift = (vkResult & 0x100) != 0;
+
+            if (needShift)
+                keybd_event(0x10, 0, 0, UIntPtr.Zero); // VK_SHIFT down
+
+            byte scan = (byte)MapVirtualKey(vk, 0);
+            keybd_event(vk, scan, 0, UIntPtr.Zero);
+            keybd_event(vk, scan, KEYEVENTF_KEYUP, UIntPtr.Zero);
+
+            if (needShift)
+                keybd_event(0x10, 0, KEYEVENTF_KEYUP, UIntPtr.Zero); // VK_SHIFT up
         }
 
         private static string MouseClick_Win(int x, int y, string clickType)
         {
             SetCursorPos(x, y);
             System.Threading.Thread.Sleep(50);
-            uint down = clickType.ToLower() == "right" ? 0x0008u : 0x0002u;
-            uint up = clickType.ToLower() == "right" ? 0x0010u : 0x0004u;
+            uint down = clickType.ToLower() == "right" ? 0x0008u : clickType.ToLower() == "middle" ? 0x0020u : 0x0002u;
+            uint up = clickType.ToLower() == "right" ? 0x0010u : clickType.ToLower() == "middle" ? 0x0040u : 0x0004u;
             mouse_event(down, x, y, 0, 0);
             mouse_event(up, x, y, 0, 0);
             return $"Clicked {clickType} at ({x}, {y})";
@@ -869,32 +957,474 @@ return """"").Trim();
             return $"{p.X},{p.Y}";
         }
 
-        // ─── UI Automation (Windows) ───
+        // ─── UI Automation (Windows) ── COM UIAutomation P/Invoke ───
+        // References SharpRPA's ThickAppClickItemCommand / ThickAppGetTextCommand patterns
+        // using COM UIAutomation (UIAutomationClient.dll) instead of managed System.Windows.Automation
 
+        // COM CLSIDs & IIDs
+        private static readonly Guid CLSID_CUIAutomation = new Guid("ff48dba4-60ef-4201-aa87-54103eef594e");
+        private static readonly Guid IID_IUIAutomation = new Guid("30cbe57d-d9d0-452a-ab13-7ac5ac4825ee");
+
+        // UIAutomation Property IDs
+        private const int UIA_NamePropertyId = 30005;
+        private const int UIA_AutomationIdPropertyId = 30011;
+        private const int UIA_ControlTypePropertyId = 30003;
+        private const int UIA_ButtonControlTypeId = 50000;
+        private const int UIA_LocalizedControlTypePropertyId = 30004;
+
+        // UIAutomation Pattern IDs
+        private const int UIA_InvokePatternId = 10000;
+        private const int UIA_ValuePatternId = 10002;
+
+        // TreeScope
+        private const int TreeScope_Children = 0x2;
+        private const int TreeScope_Descendants = 0x4;
+
+        [DllImport("ole32.dll")]
+        private static extern int CoCreateInstance(
+            [In] ref Guid rclsid, IntPtr pUnkOuter, uint dwClsContext,
+            [In] ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out object ppv);
+
+        // ─── COM Interface declarations for UIAutomation ───
+
+        [ComImport, Guid("30cbe57d-d9d0-452a-ab13-7ac5ac4825ee")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomation
+        {
+            // Method 0: CompareElements
+            int CompareElements(object el1, object el2);
+            // Method 1: CompareRuntimeIds
+            int CompareRuntimeIds(object runtimeId1, object runtimeId2);
+            // Method 2: GetRootElement
+            IUIAutomationElement GetRootElement();
+            // Method 3: ElementFromHandle
+            IUIAutomationElement ElementFromHandle(IntPtr hwnd);
+            // Method 4: ElementFromPoint
+            IUIAutomationElement ElementFromPoint(tagPOINT pt);
+            // Method 5: GetFocusedElement
+            IUIAutomationElement GetFocusedElement();
+            // Method 6: GetRootElementBuildCache
+            IUIAutomationElement GetRootElementBuildCache(object cacheRequest);
+            // Method 7: ElementFromHandleBuildCache
+            IUIAutomationElement ElementFromHandleBuildCache(IntPtr hwnd, object cacheRequest);
+            // Method 8: ElementFromPointBuildCache
+            IUIAutomationElement ElementFromPointBuildCache(tagPOINT pt, object cacheRequest);
+            // Method 9: GetFocusedElementBuildCache
+            IUIAutomationElement GetFocusedElementBuildCache(object cacheRequest);
+            // Method 10: CreateTreeWalker
+            object CreateTreeWalker(IUIAutomationCondition pCondition);
+            // Method 11: ControlViewWalker
+            object ControlViewWalker { get; }
+            // Method 12: ContentViewWalker
+            object ContentViewWalker { get; }
+            // Method 13: RawViewWalker
+            object RawViewWalker { get; }
+            // Method 14: RawViewCondition
+            IUIAutomationCondition RawViewCondition { get; }
+            // Method 15: ControlViewCondition
+            IUIAutomationCondition ControlViewCondition { get; }
+            // Method 16: ContentViewCondition
+            IUIAutomationCondition ContentViewCondition { get; }
+            // Method 17: CreateCacheRequest
+            object CreateCacheRequest();
+            // Method 18: CreateTrueCondition
+            IUIAutomationCondition CreateTrueCondition();
+            // Method 19: CreateFalseCondition
+            IUIAutomationCondition CreateFalseCondition();
+            // Method 20: CreatePropertyCondition
+            IUIAutomationCondition CreatePropertyCondition(int propertyId, object value);
+            // Method 21: CreatePropertyConditionEx
+            IUIAutomationCondition CreatePropertyConditionEx(int propertyId, object value, int flags);
+            // Method 22: CreateAndCondition
+            IUIAutomationCondition CreateAndCondition(IUIAutomationCondition condition1, IUIAutomationCondition condition2);
+        }
+
+        [ComImport, Guid("d22108aa-8ac5-49a5-837b-37bbb3d7591e")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationElement
+        {
+            // Method 0: SetFocus
+            void SetFocus();
+            // Method 1: GetRuntimeId
+            int[] GetRuntimeId();
+            // Method 2: FindFirst
+            IUIAutomationElement FindFirst(int scope, IUIAutomationCondition condition);
+            // Method 3: FindAll
+            IUIAutomationElementArray FindAll(int scope, IUIAutomationCondition condition);
+            // Method 4: FindFirstBuildCache
+            IUIAutomationElement FindFirstBuildCache(int scope, IUIAutomationCondition condition, object cacheRequest);
+            // Method 5: FindAllBuildCache
+            IUIAutomationElementArray FindAllBuildCache(int scope, IUIAutomationCondition condition, object cacheRequest);
+            // Method 6: BuildUpdatedCache
+            IUIAutomationElement BuildUpdatedCache(object cacheRequest);
+            // Method 7: GetCurrentPropertyValue
+            object GetCurrentPropertyValue(int propertyId);
+            // Method 8: GetCurrentPropertyValueEx
+            object GetCurrentPropertyValueEx(int propertyId, int ignoreDefaultValue);
+            // Method 9: GetCachedPropertyValue
+            object GetCachedPropertyValue(int propertyId);
+            // Method 10: GetCachedPropertyValueEx
+            object GetCachedPropertyValueEx(int propertyId, int ignoreDefaultValue);
+            // Method 11: QueryInterface pattern
+            IntPtr GetCurrentPatternAs(int patternId, ref Guid riid);
+            // Method 12: GetCachedPatternAs
+            IntPtr GetCachedPatternAs(int patternId, ref Guid riid);
+            // Method 13: GetCurrentPattern
+            [return: MarshalAs(UnmanagedType.IUnknown)]
+            object GetCurrentPattern(int patternId);
+            // Method 14-16: CachedPattern and extra
+            [return: MarshalAs(UnmanagedType.IUnknown)]
+            object GetCachedPattern(int patternId);
+            IUIAutomationElement GetCachedParent();
+            IUIAutomationElementArray GetCachedChildren();
+            // Method 17+: Current properties - we use GetCurrentPropertyValue instead
+        }
+
+        [ComImport, Guid("14314595-b4bc-4055-95f2-58f2e42c9855")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationElementArray
+        {
+            int Length { get; }
+            IUIAutomationElement GetElement(int index);
+        }
+
+        [ComImport, Guid("352ffba8-0973-437c-a61f-f64cafd81df9")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationCondition { }
+
+        [ComImport, Guid("fb377fbe-8ea6-46d5-9c73-6499642d3059")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationInvokePattern
+        {
+            void Invoke();
+        }
+
+        [ComImport, Guid("a94cd8b1-0844-4cd6-9d2d-640537ab39e9")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationValuePattern
+        {
+            void SetValue([MarshalAs(UnmanagedType.BStr)] string val);
+            string CurrentValue { [return: MarshalAs(UnmanagedType.BStr)] get; }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct tagPOINT { public int x, y; }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetPhysicalCursorPos(out tagPOINT lpPoint);
+
+        // ─── UIAutomation helper: create COM automation object ───
+
+        private static IUIAutomation? _uiAutomation;
+        private static readonly object _uiaLock = new object();
+
+        private static IUIAutomation GetUIAutomation()
+        {
+            if (_uiAutomation == null)
+            {
+                lock (_uiaLock)
+                {
+                    if (_uiAutomation == null)
+                    {
+                        var clsid = CLSID_CUIAutomation;
+                        var iid = IID_IUIAutomation;
+                        int hr = CoCreateInstance(ref clsid, IntPtr.Zero, 1 /*CLSCTX_INPROC_SERVER*/ | 4 /*CLSCTX_LOCAL_SERVER*/,
+                            ref iid, out object obj);
+                        if (hr != 0)
+                            throw new COMException($"Failed to create CUIAutomation instance. HRESULT: 0x{hr:X8}", hr);
+                        _uiAutomation = (IUIAutomation)obj;
+                    }
+                }
+            }
+            return _uiAutomation;
+        }
+
+        /// <summary>
+        /// Finds a top-level window element by title (like SharpRPA's
+        /// AutomationElement.RootElement.FindFirst(TreeScope.Children, NameProperty == title))
+        /// </summary>
+        private static IUIAutomationElement? FindWindowElement(string windowTitle)
+        {
+            try
+            {
+                var uia = GetUIAutomation();
+                var root = uia.GetRootElement();
+                var cond = uia.CreatePropertyCondition(UIA_NamePropertyId, windowTitle);
+
+                // Try exact match first (TreeScope.Children)
+                var el = root.FindFirst(TreeScope_Children, cond);
+                if (el != null)
+                    return el;
+
+                // Partial match: enumerate all children and check Contains
+                var trueCond = uia.CreateTrueCondition();
+                var children = root.FindAll(TreeScope_Children, trueCond);
+                if (children != null)
+                {
+                    for (int i = 0; i < children.Length; i++)
+                    {
+                        var child = children.GetElement(i);
+                        var name = child.GetCurrentPropertyValue(UIA_NamePropertyId) as string;
+                        if (!string.IsNullOrEmpty(name) && name.Contains(windowTitle, StringComparison.OrdinalIgnoreCase))
+                            return child;
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PlatformAutomation] FindWindowElement error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets all UI elements in a window.
+        /// Mirrors SharpRPA's ThickAppClickItemCommand.FindHandleObjects():
+        ///   automationElement.FindAll(TreeScope.Descendants, TrueCondition)
+        /// </summary>
         private static List<string> GetUIElements_Win(string windowTitle)
         {
-            return new List<string> { "UIAutomation required on Windows" };
+            var result = new List<string>();
+            try
+            {
+                var windowEl = FindWindowElement(windowTitle);
+                if (windowEl == null) return new List<string> { $"Window not found: {windowTitle}" };
+
+                var uia = GetUIAutomation();
+                var trueCond = uia.CreateTrueCondition();
+                var allElements = windowEl.FindAll(TreeScope_Descendants, trueCond);
+
+                if (allElements != null)
+                {
+                    for (int i = 0; i < allElements.Length; i++)
+                    {
+                        try
+                        {
+                            var el = allElements.GetElement(i);
+                            var name = el.GetCurrentPropertyValue(UIA_NamePropertyId) as string ?? "";
+                            var controlType = el.GetCurrentPropertyValue(UIA_LocalizedControlTypePropertyId) as string ?? "";
+
+                            if (!string.IsNullOrWhiteSpace(name))
+                                result.Add($"{controlType}: {name}");
+                        }
+                        catch { /* skip inaccessible elements */ }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Add($"Error: {ex.Message}");
+            }
+            return result;
         }
 
+        /// <summary>
+        /// Gets all buttons in a window.
+        /// Like SharpRPA's FindHandleObjects but filtered to ControlType.Button.
+        /// </summary>
         private static List<string> GetUIButtons_Win(string windowTitle)
         {
-            return new List<string>();
+            var result = new List<string>();
+            try
+            {
+                var windowEl = FindWindowElement(windowTitle);
+                if (windowEl == null) return result;
+
+                var uia = GetUIAutomation();
+                var buttonCond = uia.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_ButtonControlTypeId);
+                var buttons = windowEl.FindAll(TreeScope_Descendants, buttonCond);
+
+                if (buttons != null)
+                {
+                    for (int i = 0; i < buttons.Length; i++)
+                    {
+                        try
+                        {
+                            var el = buttons.GetElement(i);
+                            var name = el.GetCurrentPropertyValue(UIA_NamePropertyId) as string ?? "";
+                            if (!string.IsNullOrWhiteSpace(name))
+                                result.Add(name);
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PlatformAutomation] GetUIButtons_Win error: {ex.Message}");
+            }
+            return result.Distinct().ToList();
         }
 
+        /// <summary>
+        /// Clicks a UI element by name (like SharpRPA's ThickAppClickItemCommand.RunCommand):
+        ///   1. Find element by name
+        ///   2. GetClickablePoint
+        ///   3. SetCursorPos + mouse_event
+        /// </summary>
         private static string ClickUIElement_Win(string windowTitle, string elementName)
         {
-            return "UIAutomation required on Windows";
+            try
+            {
+                var windowEl = FindWindowElement(windowTitle);
+                if (windowEl == null) return $"Window not found: {windowTitle}";
+
+                var uia = GetUIAutomation();
+                var cond = uia.CreatePropertyCondition(UIA_NamePropertyId, elementName);
+                var el = windowEl.FindFirst(TreeScope_Descendants, cond);
+                if (el == null) return $"Element not found: {elementName}";
+
+                // Activate the window first (like SharpRPA does)
+                ActivateWindow_Win(windowTitle);
+                System.Threading.Thread.Sleep(200);
+
+                // Try to get clickable point via bounding rectangle
+                try
+                {
+                    // UIA_BoundingRectanglePropertyId = 30001
+                    var rectObj = el.GetCurrentPropertyValue(30001);
+                    if (rectObj is double[] rectArr && rectArr.Length == 4)
+                    {
+                        int cx = (int)(rectArr[0] + rectArr[2] / 2);
+                        int cy = (int)(rectArr[1] + rectArr[3] / 2);
+                        SetCursorPos(cx, cy);
+                        System.Threading.Thread.Sleep(50);
+                        mouse_event(0x0002, cx, cy, 0, 0); // LEFTDOWN
+                        mouse_event(0x0004, cx, cy, 0, 0); // LEFTUP
+                        return $"Clicked: {elementName} at ({cx}, {cy})";
+                    }
+                }
+                catch { }
+
+                // Fallback: try InvokePattern
+                try
+                {
+                    var pattern = (IUIAutomationInvokePattern)el.GetCurrentPattern(UIA_InvokePatternId);
+                    pattern.Invoke();
+                    return $"Invoked click: {elementName}";
+                }
+                catch { }
+
+                return $"Could not click element: {elementName} (no clickable point or invoke pattern)";
+            }
+            catch (Exception ex)
+            {
+                return $"ClickUIElement error: {ex.Message}";
+            }
         }
 
+        /// <summary>
+        /// Invokes a button by name using InvokePattern.
+        /// Mirrors SharpRPA's InvokePattern.Invoke() approach.
+        /// </summary>
         private static string InvokeUIButton_Win(string windowTitle, string buttonName)
         {
-            return "UIAutomation required on Windows";
+            try
+            {
+                var windowEl = FindWindowElement(windowTitle);
+                if (windowEl == null) return $"Window not found: {windowTitle}";
+
+                var uia = GetUIAutomation();
+
+                // Find button by name + ControlType.Button
+                var nameCond = uia.CreatePropertyCondition(UIA_NamePropertyId, buttonName);
+                var typeCond = uia.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_ButtonControlTypeId);
+                var andCond = uia.CreateAndCondition(nameCond, typeCond);
+
+                var el = windowEl.FindFirst(TreeScope_Descendants, andCond);
+
+                // Fallback: search by name only if button type didn't match
+                if (el == null)
+                    el = windowEl.FindFirst(TreeScope_Descendants, nameCond);
+
+                if (el == null) return $"Button not found: {buttonName}";
+
+                // Activate window first
+                ActivateWindow_Win(windowTitle);
+                System.Threading.Thread.Sleep(100);
+
+                try
+                {
+                    var pattern = (IUIAutomationInvokePattern)el.GetCurrentPattern(UIA_InvokePatternId);
+                    pattern.Invoke();
+                    return $"Invoked: {buttonName}";
+                }
+                catch
+                {
+                    // Fallback: click via bounding rect
+                    try
+                    {
+                        var rectObj = el.GetCurrentPropertyValue(30001); // BoundingRectangle
+                        if (rectObj is double[] rectArr && rectArr.Length == 4)
+                        {
+                            int cx = (int)(rectArr[0] + rectArr[2] / 2);
+                            int cy = (int)(rectArr[1] + rectArr[3] / 2);
+                            SetCursorPos(cx, cy);
+                            System.Threading.Thread.Sleep(50);
+                            mouse_event(0x0002, cx, cy, 0, 0);
+                            mouse_event(0x0004, cx, cy, 0, 0);
+                            return $"Clicked button: {buttonName} at ({cx}, {cy})";
+                        }
+                    }
+                    catch { }
+                    return $"Could not invoke button: {buttonName}";
+                }
+            }
+            catch (Exception ex)
+            {
+                return $"InvokeUIButton error: {ex.Message}";
+            }
         }
 
+        /// <summary>
+        /// Gets the text/value of a UI element.
+        /// Like SharpRPA's ThickAppGetTextCommand: searches by AutomationId or Name,
+        /// then gets Current.Name or ValuePattern.Value.
+        /// </summary>
         private static string GetUIElementText_Win(string windowTitle, string elementId)
         {
-            // Fallback for Windows if UIAutomationClient is not referenced
-            return "UIAutomation on Windows requires UIAutomationClient reference.";
+            try
+            {
+                var windowEl = FindWindowElement(windowTitle);
+                if (windowEl == null) return $"Window not found: {windowTitle}";
+
+                var uia = GetUIAutomation();
+                IUIAutomationElement? el = null;
+
+                // Try by AutomationId first (like SharpRPA's ThickAppGetTextCommand)
+                try
+                {
+                    var cond = uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, elementId);
+                    el = windowEl.FindFirst(TreeScope_Descendants, cond);
+                }
+                catch { }
+
+                // Fallback: try by Name
+                if (el == null)
+                {
+                    var cond = uia.CreatePropertyCondition(UIA_NamePropertyId, elementId);
+                    el = windowEl.FindFirst(TreeScope_Descendants, cond);
+                }
+
+                if (el == null) return "";
+
+                // Try ValuePattern first (for text boxes, etc.)
+                try
+                {
+                    var valuePattern = (IUIAutomationValuePattern)el.GetCurrentPattern(UIA_ValuePatternId);
+                    return valuePattern.CurrentValue ?? "";
+                }
+                catch { }
+
+                // Fallback: return Name property
+                var name = el.GetCurrentPropertyValue(UIA_NamePropertyId) as string;
+                return name ?? "";
+            }
+            catch (Exception ex)
+            {
+                return $"GetUIElementText error: {ex.Message}";
+            }
         }
 
         // ─── Clipboard (Windows) ───
@@ -905,17 +1435,28 @@ return """"").Trim();
         private static extern IntPtr GetClipboardData(uint uFormat);
         [DllImport("user32.dll")]
         private static extern bool CloseClipboard();
+        [DllImport("user32.dll")]
+        private static extern bool EmptyClipboard();
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
         [DllImport("kernel32.dll")]
         private static extern IntPtr GlobalLock(IntPtr hMem);
         [DllImport("kernel32.dll")]
         private static extern bool GlobalUnlock(IntPtr hMem);
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
+        [DllImport("kernel32.dll")]
+        private static extern UIntPtr GlobalSize(IntPtr hMem);
+
+        private const uint CF_UNICODETEXT = 13;
+        private const uint GMEM_MOVEABLE = 0x0002;
 
         private static string GetClipboardText_Win()
         {
             string result = "";
             if (OpenClipboard(IntPtr.Zero))
             {
-                var hData = GetClipboardData(13);
+                var hData = GetClipboardData(CF_UNICODETEXT);
                 if (hData != IntPtr.Zero)
                 {
                     var lpData = GlobalLock(hData);
@@ -929,19 +1470,186 @@ return """"").Trim();
 
         private static string SetClipboardText_Win(string text)
         {
-            return "SetClipboardText_Win requires System.Windows.Forms reference.";
+            try
+            {
+                if (!OpenClipboard(IntPtr.Zero))
+                    return "Failed to open clipboard";
+
+                EmptyClipboard();
+                var bytes = (text.Length + 1) * 2; // Unicode: 2 bytes per char + null terminator
+                var hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)bytes);
+                if (hGlobal == IntPtr.Zero)
+                {
+                    CloseClipboard();
+                    return "Failed to allocate global memory";
+                }
+
+                var lpData = GlobalLock(hGlobal);
+                Marshal.Copy(text.ToCharArray(), 0, lpData, text.Length);
+                // Write null terminator
+                Marshal.WriteInt16(lpData + text.Length * 2, 0);
+                GlobalUnlock(hGlobal);
+
+                SetClipboardData(CF_UNICODETEXT, hGlobal);
+                CloseClipboard();
+                return "Clipboard set";
+            }
+            catch (Exception ex)
+            {
+                try { CloseClipboard(); } catch { }
+                return $"SetClipboard error: {ex.Message}";
+            }
         }
 
-        // ─── Screenshot (Windows) ───
+        // ─── Screenshot (Windows) ── GDI P/Invoke ───
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+        [DllImport("gdi32.dll")]
+        private static extern bool BitBlt(IntPtr hdcDest, int xDest, int yDest, int wDest, int hDest,
+            IntPtr hdcSrc, int xSrc, int ySrc, uint rop);
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteDC(IntPtr hdc);
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+        [DllImport("gdi32.dll")]
+        private static extern int GetDIBits(IntPtr hdc, IntPtr hbmp, uint uStartScan, uint cScanLines,
+            byte[] lpvBits, ref BITMAPINFO lpbi, uint uUsage);
+        [DllImport("gdi32.dll")]
+        private static extern int GetObject(IntPtr hObject, int nCount, ref BITMAP lpObject);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAP
+        {
+            public int bmType, bmWidth, bmHeight, bmWidthBytes;
+            public short bmPlanes, bmBitsPixel;
+            public IntPtr bmBits;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAPINFOHEADER
+        {
+            public uint biSize;
+            public int biWidth, biHeight;
+            public ushort biPlanes, biBitCount;
+            public uint biCompression, biSizeImage;
+            public int biXPelsPerMeter, biYPelsPerMeter;
+            public uint biClrUsed, biClrImportant;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAPINFO
+        {
+            public BITMAPINFOHEADER bmiHeader;
+            // bmiColors placeholder (not needed for 32-bit)
+        }
+
+        private const uint SRCCOPY = 0x00CC0020;
+        private const int SM_CXSCREEN = 0;
+        private const int SM_CYSCREEN = 1;
+
+        private static string CaptureScreenRegionToBmp(int x, int y, int w, int h, string filePath)
+        {
+            IntPtr hdcScreen = GetDC(IntPtr.Zero);
+            IntPtr hdcMem = CreateCompatibleDC(hdcScreen);
+            IntPtr hBitmap = CreateCompatibleBitmap(hdcScreen, w, h);
+            IntPtr hOld = SelectObject(hdcMem, hBitmap);
+
+            BitBlt(hdcMem, 0, 0, w, h, hdcScreen, x, y, SRCCOPY);
+
+            SelectObject(hdcMem, hOld);
+
+            // Get bitmap data
+            var bmpInfo = new BITMAPINFO();
+            bmpInfo.bmiHeader.biSize = (uint)Marshal.SizeOf(typeof(BITMAPINFOHEADER));
+            bmpInfo.bmiHeader.biWidth = w;
+            bmpInfo.bmiHeader.biHeight = -h; // top-down
+            bmpInfo.bmiHeader.biPlanes = 1;
+            bmpInfo.bmiHeader.biBitCount = 32;
+            bmpInfo.bmiHeader.biCompression = 0; // BI_RGB
+
+            int stride = ((w * 32 + 31) / 32) * 4;
+            int imageSize = stride * h;
+            byte[] pixels = new byte[imageSize];
+
+            GetDIBits(hdcMem, hBitmap, 0, (uint)h, pixels, ref bmpInfo, 0);
+
+            // Write BMP file
+            using (var fs = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+            using (var bw = new System.IO.BinaryWriter(fs))
+            {
+                int fileHeaderSize = 14;
+                int infoHeaderSize = 40;
+                int totalSize = fileHeaderSize + infoHeaderSize + imageSize;
+
+                // BMP file header
+                bw.Write((byte)'B');
+                bw.Write((byte)'M');
+                bw.Write(totalSize);
+                bw.Write((short)0); // reserved1
+                bw.Write((short)0); // reserved2
+                bw.Write(fileHeaderSize + infoHeaderSize); // offset to pixel data
+
+                // BMP info header (top-down, so biHeight is negative)
+                bw.Write(infoHeaderSize); // biSize
+                bw.Write(w); // biWidth
+                bw.Write(-h); // biHeight (negative = top-down)
+                bw.Write((short)1); // biPlanes
+                bw.Write((short)32); // biBitCount
+                bw.Write(0); // biCompression = BI_RGB
+                bw.Write(imageSize); // biSizeImage
+                bw.Write(0); // biXPelsPerMeter
+                bw.Write(0); // biYPelsPerMeter
+                bw.Write(0); // biClrUsed
+                bw.Write(0); // biClrImportant
+
+                bw.Write(pixels);
+            }
+
+            // Cleanup GDI
+            DeleteObject(hBitmap);
+            DeleteDC(hdcMem);
+            ReleaseDC(IntPtr.Zero, hdcScreen);
+
+            return filePath;
+        }
 
         private static string TakeScreenshot_Win(string filePath)
         {
-            return "TakeScreenshot_Win requires System.Windows.Forms and System.Drawing reference.";
+            try
+            {
+                int screenW = GetSystemMetrics(SM_CXSCREEN);
+                int screenH = GetSystemMetrics(SM_CYSCREEN);
+                CaptureScreenRegionToBmp(0, 0, screenW, screenH, filePath);
+                return $"Screenshot: {filePath}";
+            }
+            catch (Exception ex)
+            {
+                return $"Screenshot error: {ex.Message}";
+            }
         }
 
         private static string TakeRegionScreenshot_Win(int x, int y, int w, int h, string filePath)
         {
-            return "TakeRegionScreenshot_Win requires System.Drawing reference.";
+            try
+            {
+                CaptureScreenRegionToBmp(x, y, w, h, filePath);
+                return $"Region screenshot: {filePath}";
+            }
+            catch (Exception ex)
+            {
+                return $"Region screenshot error: {ex.Message}";
+            }
         }
 
         #endregion
