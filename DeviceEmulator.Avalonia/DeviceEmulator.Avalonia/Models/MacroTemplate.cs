@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -18,6 +19,16 @@ namespace DeviceEmulator.Models
         /// Unique identifier for the template.
         /// </summary>
         public string Id { get; set; } = Guid.NewGuid().ToString();
+
+        /// <summary>
+        /// Category for grouping (e.g. "Window", "Input", "Process").
+        /// </summary>
+        public string Category { get; set; } = "General";
+
+        /// <summary>
+        /// If true, the template is a built-in system template and cannot be deleted.
+        /// </summary>
+        public bool IsBuiltIn { get; set; } = false;
 
         /// <summary>
         /// The display name of the template.
@@ -50,6 +61,12 @@ namespace DeviceEmulator.Models
         /// List of required argument names.
         /// </summary>
         public ObservableCollection<string> RequiredArguments { get; set; } = new();
+
+        /// <summary>
+        /// Maps argument names to provider types for dynamic ComboBox suggestions.
+        /// Values: "WindowList", "UIElementList", "UIButtonList", "ProcessList", "None"
+        /// </summary>
+        public Dictionary<string, string> ArgumentHints { get; set; } = new();
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

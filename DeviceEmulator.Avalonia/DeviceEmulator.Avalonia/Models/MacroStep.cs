@@ -138,7 +138,7 @@ namespace DeviceEmulator.Models
                 if (value != null)
                 {
                     Content = value.Id;
-                    UpdateDisplayArguments(value.RequiredArguments);
+                    UpdateDisplayArguments(value);
                 }
                 OnPropertyChanged();
             }
@@ -150,21 +150,56 @@ namespace DeviceEmulator.Models
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
+        /// <summary>
+        /// Updates DisplayArguments from a template, including provider hints.
+        /// </summary>
+        public void UpdateDisplayArguments(MacroTemplate template)
+        {
+            DisplayArguments.Clear();
+            foreach (var arg in template.RequiredArguments)
+            {
+                if (!Arguments.ContainsKey(arg)) Arguments[arg] = "";
+                var hint = template.ArgumentHints.TryGetValue(arg, out var h) ? h : "None";
+                DisplayArguments.Add(new MacroArgumentViewModel(this, arg, hint));
+            }
+        }
+
+        /// <summary>
+        /// Backward compat: UpdateDisplayArguments from plain string list.
+        /// </summary>
         public void UpdateDisplayArguments(IEnumerable<string> requiredArgs)
         {
             DisplayArguments.Clear();
             foreach (var arg in requiredArgs)
             {
                 if (!Arguments.ContainsKey(arg)) Arguments[arg] = "";
-                DisplayArguments.Add(new MacroArgumentViewModel(this, arg));
+                DisplayArguments.Add(new MacroArgumentViewModel(this, arg, "None"));
             }
         }
     }
 
+    /// <summary>
+    /// ViewModel for a single template argument with optional dynamic suggestions.
+    /// </summary>
     public class MacroArgumentViewModel : INotifyPropertyChanged
     {
         private readonly MacroStep _parent;
         public string Name { get; }
+
+        /// <summary>
+        /// The provider type for dynamic suggestions: WindowList, UIElementList, UIButtonList, ProcessList, None
+        /// </summary>
+        public string ProviderType { get; }
+
+        /// <summary>
+        /// Whether this argument has a dynamic suggestion provider.
+        /// </summary>
+        public bool HasProvider => ProviderType != "None" && !string.IsNullOrEmpty(ProviderType);
+
+        /// <summary>
+        /// Dynamic suggestions populated on demand.
+        /// </summary>
+        public ObservableCollection<string> Suggestions { get; } = new();
 
         public string Value
         {
@@ -176,10 +211,86 @@ namespace DeviceEmulator.Models
             }
         }
 
-        public MacroArgumentViewModel(MacroStep parent, string name)
+        private string? _selectedSuggestion;
+
+        /// <summary>
+        /// When a suggestion is selected from ComboBox, it copies to Value.
+        /// </summary>
+        public string? SelectedSuggestion
+        {
+            get => _selectedSuggestion;
+            set
+            {
+                _selectedSuggestion = value;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    Value = value;
+                }
+                OnPropertyChanged();
+            }
+        }
+
+        public MacroArgumentViewModel(MacroStep parent, string name, string providerType = "None")
         {
             _parent = parent;
             Name = name;
+            ProviderType = providerType;
+        }
+
+        /// <summary>
+        /// Refreshes the Suggestions list from PlatformAutomation based on ProviderType.
+        /// Called when the user opens the ComboBox dropdown.
+        /// </summary>
+        public void RefreshSuggestions()
+        {
+            Suggestions.Clear();
+
+            try
+            {
+                List<string> items;
+                switch (ProviderType)
+                {
+                    case "WindowList":
+                        items = Services.PlatformAutomation.GetOpenWindows();
+                        break;
+                    case "ProcessList":
+                        items = Services.PlatformAutomation.GetRunningProcesses();
+                        break;
+                    case "UIElementList":
+                        var winTitle1 = GetSiblingArgumentValue("WindowTitle");
+                        items = string.IsNullOrEmpty(winTitle1)
+                            ? new List<string>()
+                            : Services.PlatformAutomation.GetUIElements(winTitle1);
+                        break;
+                    case "UIButtonList":
+                        var winTitle2 = GetSiblingArgumentValue("WindowTitle");
+                        items = string.IsNullOrEmpty(winTitle2)
+                            ? new List<string>()
+                            : Services.PlatformAutomation.GetUIButtons(winTitle2);
+                        break;
+                    default:
+                        items = new List<string>();
+                        break;
+                }
+
+                foreach (var item in items)
+                    Suggestions.Add(item);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MacroArgumentVM] RefreshSuggestions error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the value of a sibling argument (e.g., gets WindowTitle value
+        /// when refreshing UIButtonList suggestions).
+        /// </summary>
+        private string GetSiblingArgumentValue(string siblingName)
+        {
+            if (_parent.Arguments.TryGetValue(siblingName, out var value))
+                return value;
+            return "";
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

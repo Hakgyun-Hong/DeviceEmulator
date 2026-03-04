@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:vm="clr-namespace:DeviceEmulator.ViewModels"
+        xmlns:m="clr-namespace:DeviceEmulator.Models"
         xmlns:views="clr-namespace:DeviceEmulator.Views"
         x:Class="DeviceEmulator.Views.MainWindow"
         Title="Device Emulator - VS Code Style" Width="1400" Height="900"
@@ -36,7 +37,7 @@
 
             <!-- 1: Sidebar (Explorer) -->
             <Border Grid.Column="1" Background="{StaticResource BgSidebar}">
-                <Grid RowDefinitions="35,*,Auto">
+                <Grid RowDefinitions="35,*,35,Auto,Auto">
                     <!-- Sidebar Header -->
                     <Border Padding="20,0">
                         <TextBlock Text="EXPLORER" VerticalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="#BBBBBB"/>
@@ -73,8 +74,37 @@
                         </TreeView>
                     </ScrollViewer>
 
+                    <!-- Template Explorer Header -->
+                    <Border Grid.Row="2" Padding="20,0" Background="{StaticResource BgSidebar}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                        <TextBlock Text="TEMPLATE EXPLORER" VerticalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="#61AFEF"/>
+                    </Border>
+
+                    <!-- Template Explorer TreeView -->
+                    <ScrollViewer Grid.Row="3" Padding="0,5" MaxHeight="250">
+                        <TreeView ItemsSource="{Binding AvailableTemplateGroups}" Background="Transparent" BorderThickness="0"
+                                  x:Name="TemplateExplorerTree">
+                            <TreeView.DataTemplates>
+                                <TreeDataTemplate DataType="vm:TemplateCategoryGroup" ItemsSource="{Binding Items}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Height="22">
+                                        <TextBlock Text="📂" FontSize="13" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding CategoryName}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#E0E0E0" FontSize="12"/>
+                                    </StackPanel>
+                                </TreeDataTemplate>
+                                <DataTemplate DataType="m:MacroTemplate">
+                                    <Border Background="Transparent" Padding="2,1" DoubleTapped="OnTemplateExplorerDoubleClick" Cursor="Hand"
+                                            ToolTip.Tip="{Binding Description}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" Height="20">
+                                            <TextBlock Text="⚡" FontSize="11" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="#D4D4D4" FontSize="12"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </TreeView.DataTemplates>
+                        </TreeView>
+                    </ScrollViewer>
+
                     <!-- Add Buttons (Bottom of Sidebar) -->
-                    <StackPanel Grid.Row="2" Spacing="5" Margin="0,10,0,0">
+                    <StackPanel Grid.Row="4" Spacing="5" Margin="0,10,0,0">
                         <Button Content="Add Serial Device" Classes="primary" HorizontalAlignment="Stretch" Click="OnAddSerialDevice" FontSize="12"/>
                         <Button Content="Add TCP Device" Classes="primary" HorizontalAlignment="Stretch" Click="OnAddTcpDevice" FontSize="12"/>
                         <Button Content="Add Macro Scenario" Classes="primary" HorizontalAlignment="Stretch" Click="OnAddMacroDevice" FontSize="12"/>

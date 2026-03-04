@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
@@ -36,6 +37,18 @@ namespace DeviceEmulator.Views
                         vm.AvailableTemplates.Add(t);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// When the user opens the suggestion ComboBox dropdown, refresh the suggestions list
+        /// from PlatformAutomation (e.g. open windows, UI elements, processes).
+        /// </summary>
+        private void OnSuggestionDropDownOpened(object? sender, EventArgs e)
+        {
+            if (sender is ComboBox combo && combo.DataContext is Models.MacroArgumentViewModel argVm)
+            {
+                argVm.RefreshSuggestions();
             }
         }
     }

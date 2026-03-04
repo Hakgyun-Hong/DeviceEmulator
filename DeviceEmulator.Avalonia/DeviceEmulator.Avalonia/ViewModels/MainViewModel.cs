@@ -44,6 +44,11 @@ namespace DeviceEmulator.ViewModels
         public ObservableCollection<DeviceCategoryViewModel> Categories { get; } = new();
 
         /// <summary>
+        /// Template categories for Template Explorer panel.
+        /// </summary>
+        public ObservableCollection<TemplateCategoryGroup> AvailableTemplateGroups { get; } = new();
+
+        /// <summary>
         /// Currently selected device.
         /// </summary>
         public DeviceTreeItemViewModel? SelectedDevice
@@ -274,6 +279,9 @@ namespace DeviceEmulator.ViewModels
                 period: 500);
 
             LoadSettings(); // Load saved devices
+
+            // Build Template Explorer groups
+            RebuildTemplateGroups();
         }
 
         #region Interactive Console
@@ -358,6 +366,43 @@ namespace DeviceEmulator.ViewModels
                     GlobalVariables.Add(new Variable(name, value, type));
                 }
             });
+        }
+
+        private void RebuildTemplateGroups()
+        {
+            AvailableTemplateGroups.Clear();
+            var templates = MacroTemplateService.Load();
+            var groups = templates
+                .GroupBy(t => t.Category ?? "General")
+                .OrderBy(g => g.Key switch
+                {
+                    "General" => 0, "Window" => 1, "Input" => 2,
+                    "UI Automation" => 3, "Process" => 4, "Clipboard" => 5,
+                    "Screenshot" => 6, _ => 99
+                });
+            foreach (var g in groups)
+            {
+                var group = new TemplateCategoryGroup(g.Key);
+                foreach (var t in g) group.Items.Add(t);
+                AvailableTemplateGroups.Add(group);
+            }
+        }
+
+        /// <summary>
+        /// Inserts a Template step into the current Macro's step list.
+        /// </summary>
+        public void InsertTemplateStep(MacroTemplate template)
+        {
+            if (_selectedDevice?.Config is MacroDeviceConfig macroConfig)
+            {
+                var step = new MacroStep
+                {
+                    StepType = MacroStepType.Template,
+                    Content = template.Id,
+                    SelectedTemplate = template
+                };
+                macroConfig.Steps.Add(step);
+            }
         }
 
         #endregion

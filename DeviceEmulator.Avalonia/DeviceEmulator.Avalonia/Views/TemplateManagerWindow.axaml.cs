@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using DeviceEmulator.Models;
 
 namespace DeviceEmulator.Views
 {
@@ -14,6 +15,19 @@ namespace DeviceEmulator.Views
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+
+            // Wire TreeView selection to ViewModel
+            var tree = this.FindControl<TreeView>("TemplateTree");
+            if (tree != null)
+            {
+                tree.SelectionChanged += (s, e) =>
+                {
+                    if (DataContext is ViewModels.TemplateManagerViewModel vm && tree.SelectedItem is MacroTemplate t)
+                    {
+                        vm.SelectedTemplate = t;
+                    }
+                };
+            }
         }
 
         private void OnSaveAndClose(object? sender, RoutedEventArgs e)

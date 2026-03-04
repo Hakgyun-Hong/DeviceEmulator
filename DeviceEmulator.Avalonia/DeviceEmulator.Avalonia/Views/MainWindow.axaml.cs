@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using DeviceEmulator.ViewModels;
+using DeviceEmulator.Models;
 using System;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
@@ -217,6 +218,18 @@ namespace DeviceEmulator.Views
         private void OnResetConsole(object sender, RoutedEventArgs e)
         {
             ViewModel?.ResetConsole();
+        }
+
+        #endregion
+
+        #region Template Explorer
+
+        private void OnTemplateExplorerDoubleClick(object? sender, TappedEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is MacroTemplate template && ViewModel != null)
+            {
+                ViewModel.InsertTemplateStep(template);
+            }
         }
 
         #endregion
