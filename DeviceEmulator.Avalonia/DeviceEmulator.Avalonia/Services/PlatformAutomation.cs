@@ -633,11 +633,36 @@ return """"").Trim();
 
         private static string FindAppByWindowTitle_Mac(string title)
         {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                // Fallback: Frontmost application
+                return RunAppleScript(@"
+tell application ""System Events""
+    return name of first application process whose frontmost is true
+end tell").Trim();
+            }
+
+            if (title.StartsWith("pid:", StringComparison.OrdinalIgnoreCase) && int.TryParse(title.Substring(4), out int pid))
+            {
+                try
+                {
+                    var p = Process.GetProcessById(pid);
+                    return p.ProcessName;
+                }
+                catch { }
+            }
+
             var result = RunAppleScript($@"
 tell application ""System Events""
     set allProcs to every process whose visible is true
     repeat with aProc in allProcs
         try
+            -- 1. Check if the process name itself is a match (fallback)
+            if name of aProc is ""{EscapeAppleScript(title)}"" then
+                return name of aProc
+            end if
+
+            -- 2. Check window titles
             set procWindows to every window of aProc
             repeat with aWin in procWindows
                 if name of aWin contains ""{EscapeAppleScript(title)}"" then
@@ -731,25 +756,58 @@ return """"").Trim();
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT { public int X, Y; }
-
         // ─── Window methods (Windows) ───
 
         private static IntPtr FindWindowByTitle_Win(string title)
         {
+            if (string.IsNullOrWhiteSpace(title))
+                return GetForegroundWindow();
+
+            if (title.StartsWith("pid:", StringComparison.OrdinalIgnoreCase))
+            {
+                var idStr = new string(title.Substring(4).TakeWhile(char.IsDigit).ToArray());
+                if (int.TryParse(idStr, out int pid))
+                {
+                    try
+                    {
+                        var p = Process.GetProcessById(pid);
+                        if (p.MainWindowHandle != IntPtr.Zero)
+                            return p.MainWindowHandle;
+                    }
+                    catch { /* Process not found or no main window */ }
+                }
+            }
+
+            // 1. Exact or partial match by Window Title
             IntPtr found = IntPtr.Zero;
             EnumWindows((hWnd, _) =>
             {
                 if (!IsWindowVisible(hWnd)) return true;
                 var sb = new StringBuilder(256);
                 GetWindowText(hWnd, sb, 256);
-                if (sb.ToString().Contains(title, StringComparison.OrdinalIgnoreCase))
+                if (sb.Length > 0 && sb.ToString().Contains(title, StringComparison.OrdinalIgnoreCase))
                 {
                     found = hWnd;
                     return false;
                 }
                 return true;
             }, IntPtr.Zero);
-            return found;
+
+            if (found != IntPtr.Zero) return found;
+
+            // 2. Fallback: match by process name (ensure we get one with a window)
+            try
+            {
+                var procs = Process.GetProcessesByName(title);
+                foreach (var p in procs)
+                {
+                    if (p.MainWindowHandle != IntPtr.Zero)
+                        return p.MainWindowHandle;
+                }
+            }
+            catch { /* Process not found */ }
+
+            return IntPtr.Zero;
         }
 
         private static List<string> GetOpenWindows_Win()
@@ -789,8 +847,14 @@ return """"").Trim();
         {
             var hWnd = FindWindowByTitle_Win(title);
             if (hWnd == IntPtr.Zero) return $"Window not found: {title}";
-            int cmd = state.ToLower() switch { "maximize" => 3, "minimize" => 6, _ => 9 };
-            ShowWindow(hWnd, cmd);
+
+            switch (state.ToLower())
+            {
+                case "minimize": ShowWindow(hWnd, 6); break;
+                case "maximize": ShowWindow(hWnd, 3); break;
+                case "restore": ShowWindow(hWnd, 9); break;
+                default: return $"Invalid state: {state}. Use minimize, maximize, or restore.";
+            }
             return $"Set {state}: {title}";
         }
 
@@ -798,7 +862,8 @@ return """"").Trim();
         {
             var hWnd = FindWindowByTitle_Win(title);
             if (hWnd == IntPtr.Zero) return $"Window not found: {title}";
-            SetWindowPos(hWnd, IntPtr.Zero, x, y, 0, 0, 0x0001 | 0x0004);
+
+            SetWindowPos(hWnd, IntPtr.Zero, x, y, 0, 0, 0x0001 | 0x0004); // SWP_NOSIZE | SWP_NOZORDER
             return $"Moved: {title} to ({x}, {y})";
         }
 
@@ -806,14 +871,17 @@ return """"").Trim();
         {
             var hWnd = FindWindowByTitle_Win(title);
             if (hWnd == IntPtr.Zero) return $"Window not found: {title}";
-            SetWindowPos(hWnd, IntPtr.Zero, 0, 0, w, h, 0x0002 | 0x0004);
+
+            SetWindowPos(hWnd, IntPtr.Zero, 0, 0, w, h, 0x0002 | 0x0004); // SWP_NOMOVE | SWP_NOZORDER
             return $"Resized: {title} to {w}x{h}";
         }
 
         private static string GetForegroundWindowTitle_Win()
         {
+            var hWnd = GetForegroundWindow();
+            if (hWnd == IntPtr.Zero) return "";
             var sb = new StringBuilder(256);
-            GetWindowText(GetForegroundWindow(), sb, 256);
+            GetWindowText(hWnd, sb, 256);
             return sb.ToString();
         }
 
@@ -821,16 +889,24 @@ return """"").Trim();
         {
             var hWnd = FindWindowByTitle_Win(title);
             if (hWnd == IntPtr.Zero) return $"Window not found: {title}";
-            SetWindowPos(hWnd, topmost ? new IntPtr(-1) : new IntPtr(-2), 0, 0, 0, 0, 0x0001 | 0x0002);
-            return (topmost ? "Set topmost: " : "Removed topmost: ") + title;
+
+            IntPtr HWND_TOPMOST = new IntPtr(-1);
+            IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+
+            SetWindowPos(hWnd, topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, 0x0001 | 0x0002);
+            return $"Set topmost {topmost}: {title}";
         }
 
         private static string GetWindowPosition_Win(string title)
         {
             var hWnd = FindWindowByTitle_Win(title);
             if (hWnd == IntPtr.Zero) return "Window not found";
-            GetWindowRect(hWnd, out RECT r);
-            return $"{r.Left},{r.Top},{r.Right - r.Left},{r.Bottom - r.Top}";
+
+            if (GetWindowRect(hWnd, out RECT rect))
+            {
+                return $"X={rect.Left}, Y={rect.Top}, W={rect.Right - rect.Left}, H={rect.Bottom - rect.Top}";
+            }
+            return "Failed to get rect";
         }
 
         // ─── Input (Windows) ───
@@ -1140,36 +1216,18 @@ return """"").Trim();
         }
 
         /// <summary>
-        /// Finds a top-level window element by title (like SharpRPA's
-        /// AutomationElement.RootElement.FindFirst(TreeScope.Children, NameProperty == title))
+        /// Finds a top-level window element by title (or fallback logic)
+        /// Uses FindWindowByTitle_Win to get the HWND, then ElementFromHandle.
         /// </summary>
         private static IUIAutomationElement? FindWindowElement(string windowTitle)
         {
             try
             {
+                var hwnd = FindWindowByTitle_Win(windowTitle);
+                if (hwnd == IntPtr.Zero) return null;
+
                 var uia = GetUIAutomation();
-                var root = uia.GetRootElement();
-                var cond = uia.CreatePropertyCondition(UIA_NamePropertyId, windowTitle);
-
-                // Try exact match first (TreeScope.Children)
-                var el = root.FindFirst(TreeScope_Children, cond);
-                if (el != null)
-                    return el;
-
-                // Partial match: enumerate all children and check Contains
-                var trueCond = uia.CreateTrueCondition();
-                var children = root.FindAll(TreeScope_Children, trueCond);
-                if (children != null)
-                {
-                    for (int i = 0; i < children.Length; i++)
-                    {
-                        var child = children.GetElement(i);
-                        var name = child.GetCurrentPropertyValue(UIA_NamePropertyId) as string;
-                        if (!string.IsNullOrEmpty(name) && name.Contains(windowTitle, StringComparison.OrdinalIgnoreCase))
-                            return child;
-                    }
-                }
-                return null;
+                return uia.ElementFromHandle(hwnd);
             }
             catch (Exception ex)
             {
