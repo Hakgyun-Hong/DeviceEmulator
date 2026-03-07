@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace DeviceEmulator.Services
@@ -18,21 +19,48 @@ namespace DeviceEmulator.Services
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static bool IsMacOS => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
 
+        private static bool TryExtractPid(string title, out int pid)
+        {
+            pid = 0;
+            if (string.IsNullOrWhiteSpace(title)) return false;
+
+            var match = Regex.Match(title, @"^\[pid:(\d+)\]", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out pid))
+                return true;
+
+            if (title.StartsWith("pid:", StringComparison.OrdinalIgnoreCase))
+            {
+                var idStr = new string(title.Substring(4).TakeWhile(char.IsDigit).ToArray());
+                if (int.TryParse(idStr, out pid))
+                    return true;
+            }
+            return false;
+        }
+
         // ════════════════════════════════════════════════════════════════
         //  WINDOW MANAGEMENT
         // ════════════════════════════════════════════════════════════════
 
+        private static string NormalizeWindowTitle(string title)
+        {
+            if (string.Equals(title, "[Current Active Window]", StringComparison.OrdinalIgnoreCase))
+                return "";
+            return title;
+        }
+
         /// <summary>Gets titles of all visible windows.</summary>
         public static List<string> GetOpenWindows()
         {
-            if (IsMacOS) return GetOpenWindows_Mac();
-            if (IsWindows) return GetOpenWindows_Win();
-            return new List<string>();
+            var list = new List<string> { "[Current Active Window]" };
+            if (IsMacOS) list.AddRange(GetOpenWindows_Mac());
+            else if (IsWindows) list.AddRange(GetOpenWindows_Win());
+            return list;
         }
 
         /// <summary>Activates a window and brings it to the foreground.</summary>
         public static string ActivateWindow(string title)
         {
+            title = NormalizeWindowTitle(title);
             if (IsMacOS) return ActivateWindow_Mac(title);
             if (IsWindows) return ActivateWindow_Win(title);
             return "Unsupported OS";
@@ -41,6 +69,7 @@ namespace DeviceEmulator.Services
         /// <summary>Closes a window by title.</summary>
         public static string CloseWindow(string title)
         {
+            title = NormalizeWindowTitle(title);
             if (IsMacOS) return CloseWindow_Mac(title);
             if (IsWindows) return CloseWindow_Win(title);
             return "Unsupported OS";
@@ -49,6 +78,7 @@ namespace DeviceEmulator.Services
         /// <summary>Waits for a window to appear.</summary>
         public static async Task<string> WaitForWindow(string title, int timeoutSeconds)
         {
+            title = NormalizeWindowTitle(title);
             var endTime = DateTime.Now.AddSeconds(timeoutSeconds);
             while (DateTime.Now < endTime)
             {
@@ -63,6 +93,7 @@ namespace DeviceEmulator.Services
         /// <summary>Sets window state: Maximize, Minimize, Restore.</summary>
         public static string SetWindowState(string title, string state)
         {
+            title = NormalizeWindowTitle(title);
             if (IsMacOS) return SetWindowState_Mac(title, state);
             if (IsWindows) return SetWindowState_Win(title, state);
             return "Unsupported OS";
@@ -71,6 +102,7 @@ namespace DeviceEmulator.Services
         /// <summary>Moves a window to the specified position.</summary>
         public static string MoveWindow(string title, int x, int y)
         {
+            title = NormalizeWindowTitle(title);
             if (IsMacOS) return MoveWindow_Mac(title, x, y);
             if (IsWindows) return MoveWindow_Win(title, x, y);
             return "Unsupported OS";
@@ -79,6 +111,7 @@ namespace DeviceEmulator.Services
         /// <summary>Resizes a window.</summary>
         public static string ResizeWindow(string title, int width, int height)
         {
+            title = NormalizeWindowTitle(title);
             if (IsMacOS) return ResizeWindow_Mac(title, width, height);
             if (IsWindows) return ResizeWindow_Win(title, width, height);
             return "Unsupported OS";
@@ -95,6 +128,7 @@ namespace DeviceEmulator.Services
         /// <summary>Sets window to always-on-top.</summary>
         public static string SetWindowTopmost(string title, bool topmost)
         {
+            title = NormalizeWindowTitle(title);
             if (IsWindows) return SetWindowTopmost_Win(title, topmost);
             // macOS doesn't have easy topmost via AppleScript
             return IsMacOS ? "Topmost not supported on macOS via AppleScript" : "Unsupported OS";
@@ -103,6 +137,7 @@ namespace DeviceEmulator.Services
         /// <summary>Gets window position and size as "X,Y,W,H".</summary>
         public static string GetWindowPosition(string title)
         {
+            title = NormalizeWindowTitle(title);
             if (IsMacOS) return GetWindowPosition_Mac(title);
             if (IsWindows) return GetWindowPosition_Win(title);
             return "";
@@ -123,6 +158,7 @@ namespace DeviceEmulator.Services
         /// <summary>Sends keys to a specific window (activate first).</summary>
         public static string SendKeysToWindow(string title, string keys)
         {
+            title = NormalizeWindowTitle(title);
             ActivateWindow(title);
             System.Threading.Thread.Sleep(200);
             return SendKeys(keys);
@@ -171,6 +207,7 @@ namespace DeviceEmulator.Services
         /// <summary>Gets names of all UI elements in a window.</summary>
         public static List<string> GetUIElements(string windowTitle)
         {
+            windowTitle = NormalizeWindowTitle(windowTitle);
             if (IsMacOS) return GetUIElements_Mac(windowTitle);
             if (IsWindows) return GetUIElements_Win(windowTitle);
             return new List<string>();
@@ -179,6 +216,7 @@ namespace DeviceEmulator.Services
         /// <summary>Gets names of all buttons in a window.</summary>
         public static List<string> GetUIButtons(string windowTitle)
         {
+            windowTitle = NormalizeWindowTitle(windowTitle);
             if (IsMacOS) return GetUIButtons_Mac(windowTitle);
             if (IsWindows) return GetUIButtons_Win(windowTitle);
             return new List<string>();
@@ -187,6 +225,7 @@ namespace DeviceEmulator.Services
         /// <summary>Clicks a UI element by name inside a window.</summary>
         public static string ClickUIElement(string windowTitle, string elementName)
         {
+            windowTitle = NormalizeWindowTitle(windowTitle);
             if (IsMacOS) return ClickUIElement_Mac(windowTitle, elementName);
             if (IsWindows) return ClickUIElement_Win(windowTitle, elementName);
             return "Unsupported OS";
@@ -195,6 +234,7 @@ namespace DeviceEmulator.Services
         /// <summary>Invokes (clicks) a button by name using accessibility APIs.</summary>
         public static string InvokeUIButton(string windowTitle, string buttonName)
         {
+            windowTitle = NormalizeWindowTitle(windowTitle);
             if (IsMacOS) return InvokeUIButton_Mac(windowTitle, buttonName);
             if (IsWindows) return InvokeUIButton_Win(windowTitle, buttonName);
             return "Unsupported OS";
@@ -203,6 +243,7 @@ namespace DeviceEmulator.Services
         /// <summary>Gets the text/value of a UI element.</summary>
         public static string GetUIElementText(string windowTitle, string elementId)
         {
+            windowTitle = NormalizeWindowTitle(windowTitle);
             if (IsMacOS) return GetUIElementText_Mac(windowTitle, elementId);
             if (IsWindows) return GetUIElementText_Win(windowTitle, elementId);
             return "";
@@ -330,13 +371,20 @@ tell application ""System Events""
     repeat with aProc in allProcs
         set procName to name of aProc
         try
+            set pid to unix id of aProc
+        on error
+            set pid to ""0""
+        end try
+        try
             set procWindows to every window of aProc
-            repeat with aWin in procWindows
-                set winName to name of aWin
-                if winName is not """" then
-                    set windowList to windowList & procName & "" - "" & winName & linefeed
-                end if
-            end repeat
+            if (count of procWindows) > 0 then
+                repeat with aWin in procWindows
+                    set winName to name of aWin
+                    set windowList to windowList & ""[pid:"" & pid & ""] "" & procName & "" - "" & winName & linefeed
+                end repeat
+            else
+                set windowList to windowList & ""[pid:"" & pid & ""] "" & procName & "" - "" & linefeed
+            end if
         end try
     end repeat
 end tell
@@ -642,7 +690,7 @@ tell application ""System Events""
 end tell").Trim();
             }
 
-            if (title.StartsWith("pid:", StringComparison.OrdinalIgnoreCase) && int.TryParse(title.Substring(4), out int pid))
+            if (TryExtractPid(title, out int pid))
             {
                 try
                 {
@@ -758,24 +806,23 @@ return """"").Trim();
         private struct POINT { public int X, Y; }
         // ─── Window methods (Windows) ───
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
         private static IntPtr FindWindowByTitle_Win(string title)
         {
             if (string.IsNullOrWhiteSpace(title))
                 return GetForegroundWindow();
 
-            if (title.StartsWith("pid:", StringComparison.OrdinalIgnoreCase))
+            if (TryExtractPid(title, out int pid))
             {
-                var idStr = new string(title.Substring(4).TakeWhile(char.IsDigit).ToArray());
-                if (int.TryParse(idStr, out int pid))
+                try
                 {
-                    try
-                    {
-                        var p = Process.GetProcessById(pid);
-                        if (p.MainWindowHandle != IntPtr.Zero)
-                            return p.MainWindowHandle;
-                    }
-                    catch { /* Process not found or no main window */ }
+                    var p = Process.GetProcessById(pid);
+                    if (p.MainWindowHandle != IntPtr.Zero)
+                        return p.MainWindowHandle;
                 }
+                catch { /* Process not found or no main window */ }
             }
 
             // 1. Exact or partial match by Window Title
@@ -819,7 +866,16 @@ return """"").Trim();
                 {
                     var sb = new StringBuilder(256);
                     GetWindowText(hWnd, sb, 256);
-                    if (sb.Length > 0) titles.Add(sb.ToString());
+                    string winTitle = sb.ToString();
+
+                    GetWindowThreadProcessId(hWnd, out uint pid);
+                    string procName = "Unknown";
+                    try { procName = Process.GetProcessById((int)pid).ProcessName; } catch { }
+
+                    if (!string.IsNullOrEmpty(winTitle) || procName != "Unknown")
+                    {
+                        titles.Add($"[pid:{pid}] {procName} - {winTitle}");
+                    }
                 }
                 return true;
             }, IntPtr.Zero);
