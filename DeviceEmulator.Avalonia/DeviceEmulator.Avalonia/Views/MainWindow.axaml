@@ -37,74 +37,71 @@
 
             <!-- 1: Sidebar (Explorer) -->
             <Border Grid.Column="1" Background="{StaticResource BgSidebar}">
-                <Grid RowDefinitions="35,*,35,Auto,Auto">
-                    <!-- Sidebar Header -->
-                    <Border Padding="20,0">
-                        <TextBlock Text="EXPLORER" VerticalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="#BBBBBB"/>
-                    </Border>
-                    
-                    <!-- TreeView -->
-                    <ScrollViewer Grid.Row="1" Padding="0,5">
-                        <TreeView ItemsSource="{Binding Categories}" Background="Transparent" BorderThickness="0">
-                            <TreeView.Styles>
-                                <Style Selector="TreeViewItem">
-                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                                </Style>
-                            </TreeView.Styles>
-                            <TreeView.DataTemplates>
-                                <TreeDataTemplate DataType="{x:Type vm:DeviceCategoryViewModel}" ItemsSource="{Binding Devices}">
-                                    <StackPanel Orientation="Horizontal" Spacing="6" Background="Transparent" Height="24">
-                                        <TextBlock Text="📁" VerticalAlignment="Center" FontSize="14"/>
-                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
-                                        <Border Background="#333333" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="4,0,0,0">
-                                            <TextBlock Text="{Binding Devices.Count}" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                                        </Border>
-                                    </StackPanel>
-                                </TreeDataTemplate>
-                                <DataTemplate DataType="{x:Type vm:DeviceTreeItemViewModel}">
-                                    <Border Background="Transparent" Padding="4,2" Tapped="OnDeviceItemClick" Cursor="Hand" ToolTip.Tip="{Binding DisplayName}">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Ellipse Width="8" Height="8" Fill="{Binding StatusColorBrush}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="📄" FontSize="14" VerticalAlignment="Center" Foreground="#AAAAAA"/>
-                                            <TextBlock Text="{Binding Config.Name}" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </TreeView.DataTemplates>
-                        </TreeView>
-                    </ScrollViewer>
-
-                    <!-- Template Explorer Header -->
-                    <Border Grid.Row="2" Padding="20,0" Background="{StaticResource BgSidebar}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
-                        <TextBlock Text="TEMPLATE EXPLORER" VerticalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="#61AFEF"/>
-                    </Border>
-
-                    <!-- Template Explorer TreeView -->
-                    <ScrollViewer Grid.Row="3" Padding="0,5" MaxHeight="250">
-                        <TreeView ItemsSource="{Binding AvailableTemplateGroups}" Background="Transparent" BorderThickness="0"
-                                  x:Name="TemplateExplorerTree">
-                            <TreeView.DataTemplates>
-                                <TreeDataTemplate DataType="vm:TemplateCategoryGroup" ItemsSource="{Binding Items}">
-                                    <StackPanel Orientation="Horizontal" Spacing="6" Height="22">
-                                        <TextBlock Text="📂" FontSize="13" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding CategoryName}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#E0E0E0" FontSize="12"/>
-                                    </StackPanel>
-                                </TreeDataTemplate>
-                                <DataTemplate DataType="m:MacroTemplate">
-                                    <Border Background="Transparent" Padding="2,1" DoubleTapped="OnTemplateExplorerDoubleClick" Cursor="Hand"
-                                            ToolTip.Tip="{Binding Description}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6" Height="20">
-                                            <TextBlock Text="⚡" FontSize="11" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="#D4D4D4" FontSize="12"/>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </TreeView.DataTemplates>
-                        </TreeView>
-                    </ScrollViewer>
+                <Grid RowDefinitions="*,Auto">
+                    <!-- Tab-based Sidebar -->
+                    <TabControl Grid.Row="0" Margin="0,5,0,0" Background="Transparent" Padding="0">
+                        <!-- Tab 1: Explorer -->
+                        <TabItem Header="EXPLORER" FontSize="11" FontWeight="Bold" Foreground="#BBBBBB">
+                            <ScrollViewer Padding="0,5">
+                                <TreeView ItemsSource="{Binding Categories}" Background="Transparent" BorderThickness="0">
+                                    <TreeView.Styles>
+                                        <Style Selector="TreeViewItem">
+                                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                        </Style>
+                                    </TreeView.Styles>
+                                    <TreeView.DataTemplates>
+                                        <TreeDataTemplate DataType="{x:Type vm:DeviceCategoryViewModel}" ItemsSource="{Binding Devices}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6" Background="Transparent" Height="24">
+                                                <TextBlock Text="📁" VerticalAlignment="Center" FontSize="14"/>
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+                                                <Border Background="#333333" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="4,0,0,0">
+                                                    <TextBlock Text="{Binding Devices.Count}" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </TreeDataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:DeviceTreeItemViewModel}">
+                                            <Border Background="Transparent" Padding="4,2" Tapped="OnDeviceItemClick" Cursor="Hand" ToolTip.Tip="{Binding DisplayName}">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <Ellipse Width="8" Height="8" Fill="{Binding StatusColorBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="📄" FontSize="14" VerticalAlignment="Center" Foreground="#AAAAAA"/>
+                                                    <TextBlock Text="{Binding Config.Name}" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </TreeView.DataTemplates>
+                                </TreeView>
+                            </ScrollViewer>
+                        </TabItem>
+                        
+                        <!-- Tab 2: Template Explorer -->
+                        <TabItem Header="TEMPLATES" FontSize="11" FontWeight="Bold" Foreground="#61AFEF">
+                            <ScrollViewer Padding="0,5">
+                                <TreeView ItemsSource="{Binding AvailableTemplateGroups}" Background="Transparent" BorderThickness="0"
+                                          x:Name="TemplateExplorerTree">
+                                    <TreeView.DataTemplates>
+                                        <TreeDataTemplate DataType="vm:TemplateCategoryGroup" ItemsSource="{Binding Items}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6" Height="22">
+                                                <TextBlock Text="📂" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding CategoryName}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#E0E0E0" FontSize="12"/>
+                                            </StackPanel>
+                                        </TreeDataTemplate>
+                                        <DataTemplate DataType="m:MacroTemplate">
+                                            <Border Background="Transparent" Padding="2,1" DoubleTapped="OnTemplateExplorerDoubleClick" Cursor="Hand"
+                                                    ToolTip.Tip="{Binding Description}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Height="20">
+                                                    <TextBlock Text="⚡" FontSize="11" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="#D4D4D4" FontSize="12"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </TreeView.DataTemplates>
+                                </TreeView>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
 
                     <!-- Add Buttons (Bottom of Sidebar) -->
-                    <StackPanel Grid.Row="4" Spacing="5" Margin="0,10,0,0">
+                    <StackPanel Grid.Row="1" Spacing="5" Margin="10,10,10,10">
                         <Button Content="Add Serial Device" Classes="primary" HorizontalAlignment="Stretch" Click="OnAddSerialDevice" FontSize="12"/>
                         <Button Content="Add TCP Device" Classes="primary" HorizontalAlignment="Stretch" Click="OnAddTcpDevice" FontSize="12"/>
                         <Button Content="Add Macro Scenario" Classes="primary" HorizontalAlignment="Stretch" Click="OnAddMacroDevice" FontSize="12"/>
