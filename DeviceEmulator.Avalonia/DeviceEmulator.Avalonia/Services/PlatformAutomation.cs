@@ -371,19 +371,14 @@ tell application ""System Events""
     repeat with aProc in allProcs
         set procName to name of aProc
         try
-            set pid to unix id of aProc
-        on error
-            set pid to ""0""
-        end try
-        try
             set procWindows to every window of aProc
             if (count of procWindows) > 0 then
                 repeat with aWin in procWindows
                     set winName to name of aWin
-                    set windowList to windowList & ""[pid:"" & pid & ""] "" & procName & "" - "" & winName & linefeed
+                    set windowList to windowList & procName & "" - "" & winName & linefeed
                 end repeat
             else
-                set windowList to windowList & ""[pid:"" & pid & ""] "" & procName & "" - "" & linefeed
+                set windowList to windowList & procName & linefeed
             end if
         end try
     end repeat
@@ -700,20 +695,49 @@ end tell").Trim();
                 catch { }
             }
 
+            // Parse "ProcessName - WindowTitle" format from dropdown
+            string? procPart = null;
+            string searchTitle = title;
+            var dashIdx = title.IndexOf(" - ", StringComparison.Ordinal);
+            if (dashIdx > 0)
+            {
+                procPart = title.Substring(0, dashIdx).Trim();
+                var winPart = title.Substring(dashIdx + 3).Trim();
+                if (!string.IsNullOrEmpty(winPart))
+                    searchTitle = winPart;
+            }
+
+            // If we parsed a process name, try direct match first
+            if (procPart != null)
+            {
+                var directMatch = RunAppleScript($@"
+tell application ""System Events""
+    set allProcs to every process whose visible is true
+    repeat with aProc in allProcs
+        if name of aProc is ""{EscapeAppleScript(procPart)}"" then
+            return name of aProc
+        end if
+    end repeat
+end tell
+return """"").Trim();
+                if (!string.IsNullOrEmpty(directMatch))
+                    return directMatch;
+            }
+
             var result = RunAppleScript($@"
 tell application ""System Events""
     set allProcs to every process whose visible is true
     repeat with aProc in allProcs
         try
             -- 1. Check if the process name itself is a match (fallback)
-            if name of aProc is ""{EscapeAppleScript(title)}"" then
+            if name of aProc is ""{EscapeAppleScript(searchTitle)}"" then
                 return name of aProc
             end if
 
             -- 2. Check window titles
             set procWindows to every window of aProc
             repeat with aWin in procWindows
-                if name of aWin contains ""{EscapeAppleScript(title)}"" then
+                if name of aWin contains ""{EscapeAppleScript(searchTitle)}"" then
                     return name of aProc
                 end if
             end repeat
@@ -814,6 +838,7 @@ return """"").Trim();
             if (string.IsNullOrWhiteSpace(title))
                 return GetForegroundWindow();
 
+            // Manual pid:xxx support (power user)
             if (TryExtractPid(title, out int pid))
             {
                 try
@@ -825,6 +850,18 @@ return """"").Trim();
                 catch { /* Process not found or no main window */ }
             }
 
+            // Parse "ProcessName - WindowTitle" format from dropdown
+            string? procPart = null;
+            string searchTitle = title;
+            var dashIdx = title.IndexOf(" - ", StringComparison.Ordinal);
+            if (dashIdx > 0)
+            {
+                procPart = title.Substring(0, dashIdx).Trim();
+                var winPart = title.Substring(dashIdx + 3).Trim();
+                if (!string.IsNullOrEmpty(winPart))
+                    searchTitle = winPart;
+            }
+
             // 1. Exact or partial match by Window Title
             IntPtr found = IntPtr.Zero;
             EnumWindows((hWnd, _) =>
@@ -832,7 +869,7 @@ return """"").Trim();
                 if (!IsWindowVisible(hWnd)) return true;
                 var sb = new StringBuilder(256);
                 GetWindowText(hWnd, sb, 256);
-                if (sb.Length > 0 && sb.ToString().Contains(title, StringComparison.OrdinalIgnoreCase))
+                if (sb.Length > 0 && sb.ToString().Contains(searchTitle, StringComparison.OrdinalIgnoreCase))
                 {
                     found = hWnd;
                     return false;
@@ -842,10 +879,11 @@ return """"").Trim();
 
             if (found != IntPtr.Zero) return found;
 
-            // 2. Fallback: match by process name (ensure we get one with a window)
+            // 2. Fallback: match by process name (from parsed left side, or raw title)
+            string procSearch = procPart ?? title;
             try
             {
-                var procs = Process.GetProcessesByName(title);
+                var procs = Process.GetProcessesByName(procSearch);
                 foreach (var p in procs)
                 {
                     if (p.MainWindowHandle != IntPtr.Zero)
@@ -872,9 +910,13 @@ return """"").Trim();
                     string procName = "Unknown";
                     try { procName = Process.GetProcessById((int)pid).ProcessName; } catch { }
 
-                    if (!string.IsNullOrEmpty(winTitle) || procName != "Unknown")
+                    if (!string.IsNullOrEmpty(winTitle))
                     {
-                        titles.Add($"[pid:{pid}] {procName} - {winTitle}");
+                        titles.Add($"{procName} - {winTitle}");
+                    }
+                    else if (procName != "Unknown")
+                    {
+                        titles.Add(procName);
                     }
                 }
                 return true;
