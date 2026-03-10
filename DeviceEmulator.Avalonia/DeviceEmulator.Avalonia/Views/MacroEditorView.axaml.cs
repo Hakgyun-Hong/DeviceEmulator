@@ -41,6 +41,20 @@ namespace DeviceEmulator.Views
         }
 
         /// <summary>
+        /// When a compact step row is clicked, set it as the SelectedStep for the Properties panel.
+        /// </summary>
+        private void OnStepTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+        {
+            if (sender is Avalonia.Controls.Border border && border.DataContext is Models.MacroStep step)
+            {
+                if (DataContext is ViewModels.DeviceTreeItemViewModel vm)
+                {
+                    vm.SelectedStep = step;
+                }
+            }
+        }
+
+        /// <summary>
         /// When the user opens the suggestion ComboBox dropdown, refresh the suggestions list
         /// from PlatformAutomation (e.g. open windows, UI elements, processes).
         /// </summary>

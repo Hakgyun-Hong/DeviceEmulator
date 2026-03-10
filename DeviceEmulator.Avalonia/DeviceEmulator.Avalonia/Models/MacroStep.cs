@@ -55,13 +55,55 @@ namespace DeviceEmulator.Models
         [JsonIgnore] public bool IsStructuralStep => StepType == MacroStepType.If || StepType == MacroStepType.While || StepType == MacroStepType.For;
 
         /// <summary>
+        /// Compact one-line summary for the step list display.
+        /// </summary>
+        [JsonIgnore]
+        public string Summary
+        {
+            get
+            {
+                switch (StepType)
+                {
+                    case MacroStepType.Template:
+                        var name = _selectedTemplate?.Name ?? Content;
+                        var argSummary = string.Join(", ", 
+                            Arguments.Where(kv => !string.IsNullOrEmpty(kv.Value))
+                                     .Select(kv => $"{kv.Key}: {Truncate(kv.Value, 20)}"));
+                        return string.IsNullOrEmpty(argSummary) ? name : $"{name} | {argSummary}";
+                    case MacroStepType.Code:
+                        var firstLine = Content?.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "";
+                        return string.IsNullOrEmpty(firstLine) ? "(empty code)" : Truncate(firstLine, 60);
+                    case MacroStepType.If:
+                        return $"If: {Truncate(Content, 40)}";
+                    case MacroStepType.While:
+                        return $"While: {Truncate(Content, 40)}";
+                    case MacroStepType.For:
+                        return $"For: {Truncate(Content, 40)}";
+                    default:
+                        return Content ?? "";
+                }
+            }
+        }
+
+        private static string Truncate(string s, int maxLen)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            return s.Length <= maxLen ? s : s.Substring(0, maxLen) + "…";
+        }
+
+        /// <summary>
+        /// Notify the UI that the summary text changed. Called after argument edits.
+        /// </summary>
+        public void RefreshSummary() => OnPropertyChanged(nameof(Summary));
+
+        /// <summary>
         /// For Code type: The raw C# code.
         /// For Template type: The Template ID.
         /// </summary>
         public string Content
         {
             get => _content;
-            set { _content = value; OnPropertyChanged(); }
+            set { _content = value; OnPropertyChanged(); RefreshSummary(); }
         }
 
         /// <summary>
@@ -141,6 +183,7 @@ namespace DeviceEmulator.Models
                     UpdateDisplayArguments(value);
                 }
                 OnPropertyChanged();
+                RefreshSummary();
             }
         }
 
@@ -208,6 +251,7 @@ namespace DeviceEmulator.Models
             {
                 _parent.Arguments[Name] = value;
                 OnPropertyChanged();
+                _parent.RefreshSummary();
             }
         }
 

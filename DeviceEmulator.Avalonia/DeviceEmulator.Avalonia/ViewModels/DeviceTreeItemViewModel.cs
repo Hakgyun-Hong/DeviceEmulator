@@ -105,6 +105,21 @@ namespace DeviceEmulator.ViewModels
         /// </summary>
         public System.Collections.ObjectModel.ObservableCollection<MacroStep>? MacroSteps => (Config as MacroDeviceConfig)?.Steps;
 
+        private MacroStep? _selectedStep;
+
+        /// <summary>
+        /// Currently selected macro step for the Properties panel.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public MacroStep? SelectedStep
+        {
+            get => _selectedStep;
+            set { _selectedStep = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSelectedStep)); }
+        }
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool HasSelectedStep => _selectedStep != null;
+
         public bool IsMacroDevice => Config is MacroDeviceConfig;
         public bool IsCodeDevice => Config is SerialDeviceConfig || Config is TcpDeviceConfig;
 

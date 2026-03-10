@@ -233,6 +233,18 @@ namespace DeviceEmulator.Views
         }
 
         #endregion
+
+        #region Step Arg Dropdown (Properties panel)
+        
+        private void OnStepArgDropDownOpened(object? sender, EventArgs e)
+        {
+            if (sender is ComboBox combo && combo.DataContext is Models.MacroArgumentViewModel argVm)
+            {
+                argVm.RefreshSuggestions();
+            }
+        }
+
+        #endregion
     }
 
     /// <summary>

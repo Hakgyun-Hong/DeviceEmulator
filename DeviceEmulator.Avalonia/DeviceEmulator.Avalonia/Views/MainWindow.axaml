@@ -279,6 +279,81 @@
                                     <TextBox Text="{Binding SelectedDevice.Config.Port, Mode=TwoWay}"/>
                                 </StackPanel>
                              </StackPanel>
+                             
+                             <!-- ─── STEP PROPERTIES (Macro) ─── -->
+                             <StackPanel IsVisible="{Binding SelectedDevice.HasSelectedStep}" Spacing="8">
+                                <Separator Background="{StaticResource BorderBrush}" Height="1" Margin="0,4"/>
+                                <TextBlock Text="STEP PROPERTIES" FontWeight="Bold" FontSize="10" Foreground="#61AFEF"/>
+                                
+                                <!-- Enable / Breakpoint -->
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <CheckBox Content="Enable" IsChecked="{Binding SelectedDevice.SelectedStep.IsEnabled}" FontSize="11"/>
+                                    <CheckBox Content="Breakpoint" IsChecked="{Binding SelectedDevice.SelectedStep.IsBreakpoint}" FontSize="11"/>
+                                </StackPanel>
+
+                                <!-- Template Step Properties -->
+                                <StackPanel IsVisible="{Binding SelectedDevice.SelectedStep.IsTemplateStep}" Spacing="8">
+                                    <TextBlock Text="Template" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <ComboBox ItemsSource="{Binding SelectedDevice.AvailableTemplates}" 
+                                              SelectedItem="{Binding SelectedDevice.SelectedStep.SelectedTemplate}" 
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    
+                                    <TextBlock Text="{Binding SelectedDevice.SelectedStep.SelectedTemplate.Description}" 
+                                               TextWrapping="Wrap" Foreground="#A0A0A0" FontSize="11" MaxLines="2"/>
+                                    
+                                    <!-- Arguments -->
+                                    <ItemsControl ItemsSource="{Binding SelectedDevice.SelectedStep.DisplayArguments}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Spacing="2" Margin="0,0,0,6">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#D4D4D4" FontSize="11" FontWeight="SemiBold"/>
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <TextBox Text="{Binding Value}" Background="#252526" Foreground="#D4D4D4" 
+                                                                 BorderThickness="1" BorderBrush="#3C3C3C" FontSize="12"/>
+                                                        <ComboBox Grid.Column="1" IsVisible="{Binding HasProvider}"
+                                                                  ItemsSource="{Binding Suggestions}"
+                                                                  SelectedItem="{Binding SelectedSuggestion}"
+                                                                  DropDownOpened="OnStepArgDropDownOpened"
+                                                                  Width="30" MaxDropDownHeight="200"
+                                                                  Background="#2D2D30" Foreground="#D4D4D4"
+                                                                  FontSize="11" Margin="4,0,0,0"
+                                                                  PlaceholderText="▼"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                
+                                <!-- Code Step Properties -->
+                                <StackPanel IsVisible="{Binding SelectedDevice.SelectedStep.IsCodeStep}" Spacing="4">
+                                    <TextBlock Text="Code" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBox Text="{Binding SelectedDevice.SelectedStep.Content}" AcceptsReturn="True" TextWrapping="Wrap" 
+                                             MinHeight="100" FontFamily="Consolas, Menlo, monospace" FontSize="12" 
+                                             Background="#252526" Foreground="#D4D4D4" BorderThickness="0"/>
+                                </StackPanel>
+                                
+                                <!-- Structural Step Properties (If/While/For) -->
+                                <StackPanel IsVisible="{Binding SelectedDevice.SelectedStep.IsStructuralStep}" Spacing="4">
+                                    <TextBlock Text="Condition" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBox Text="{Binding SelectedDevice.SelectedStep.Content}" AcceptsReturn="True" TextWrapping="Wrap" 
+                                             MinHeight="30" FontFamily="Consolas, Menlo, monospace" FontSize="12" 
+                                             Background="#252526" Foreground="#D4D4D4" BorderThickness="0"
+                                             Watermark="Condition / Loop Iteration"/>
+                                </StackPanel>
+                                
+                                <!-- Copy/Cut buttons -->
+                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                                    <Button Content="Copy" Command="{Binding SelectedDevice.CopyStep}" CommandParameter="{Binding SelectedDevice.SelectedStep}" Background="#333333" Padding="8,3" FontSize="11"/>
+                                    <Button Content="Cut" Command="{Binding SelectedDevice.CutStep}" CommandParameter="{Binding SelectedDevice.SelectedStep}" Background="#333333" Padding="8,3" FontSize="11"/>
+                                </StackPanel>
+                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                     
