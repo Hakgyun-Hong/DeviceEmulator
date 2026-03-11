@@ -244,6 +244,23 @@ namespace DeviceEmulator.Views
             }
         }
 
+        private async void OnImageCaptureClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is Models.MacroArgumentViewModel argVm)
+            {
+                // Open capture overlay
+                var overlay = new CaptureOverlayWindow();
+                await overlay.ShowDialog(this);
+                
+                // If a path was captured, set it as the argument value
+                if (!string.IsNullOrEmpty(overlay.CapturedImagePath))
+                {
+                    argVm.Value = overlay.CapturedImagePath;
+                    Console.WriteLine($"[MainWindow] Image captured: {overlay.CapturedImagePath}");
+                }
+            }
+        }
+
         #endregion
     }
 

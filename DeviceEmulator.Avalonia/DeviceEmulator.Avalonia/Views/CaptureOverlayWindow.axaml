@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DeviceEmulator.Views.CaptureOverlayWindow"
+        Title="Image Capture"
+        WindowState="Maximized"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        CanResize="False">
+
+    <Panel>
+        <!-- Semi-transparent overlay -->
+        <Border Background="#18000000" Name="OverlayBg"/>
+        
+        <!-- Capture region indicator (red rectangle) -->
+        <Canvas Name="CaptureCanvas">
+            <Border Name="CaptureRect" 
+                    BorderBrush="#FF4444" BorderThickness="2" 
+                    Background="#20FF4444"
+                    CornerRadius="2"
+                    Width="64" Height="64"
+                    IsVisible="False"/>
+        </Canvas>
+        
+        <!-- Status bar at top -->
+        <Border Background="#CC1E1E1E" Height="36" VerticalAlignment="Top" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Text="📷 IMAGE CAPTURE MODE" Foreground="#FF4444" FontWeight="Bold" FontSize="13"/>
+                <TextBlock Text="Move cursor over target → Component auto-detected → Click to capture → ESC to cancel" 
+                           Foreground="#CCCCCC" FontSize="12"/>
+                <TextBlock Name="CursorPosText" Text="(0, 0)" Foreground="#888888" FontSize="11" Margin="20,0,0,0"/>
+                <TextBlock Name="CaptureAreaText" Text="detecting..." Foreground="#888888" FontSize="11"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- Preview of what will be captured (bottom-right corner) -->
+        <Border Background="#CC1E1E1E" CornerRadius="6" Padding="4"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="0,0,20,20" Width="150" Height="150">
+            <StackPanel>
+                <TextBlock Text="PREVIEW" Foreground="#888" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2"/>
+                <Image Name="PreviewImage" Width="130" Height="130" Stretch="Uniform"/>
+            </StackPanel>
+        </Border>
+    </Panel>
+</Window>

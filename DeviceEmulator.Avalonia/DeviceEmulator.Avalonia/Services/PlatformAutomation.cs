@@ -356,6 +356,46 @@ namespace DeviceEmulator.Services
             return "Unsupported OS";
         }
 
+        // ════════════════════════════════════════════════════════════════
+        //  IMAGE-BASED AUTOMATION (Surface Automation)
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>Finds a template image on screen. Returns "X,Y" or "Not found".</summary>
+        public static string FindImageOnScreen(string imagePath, double confidence = 0.8)
+        {
+            var result = ImageMatchService.FindOnScreen(imagePath, confidence);
+            return result.Found ? $"{result.CenterX},{result.CenterY}" : "Not found";
+        }
+
+        /// <summary>Finds a template image and clicks its center.</summary>
+        public static string ClickImage(string imagePath, double confidence = 0.8, string clickType = "Left")
+        {
+            var result = ImageMatchService.FindOnScreen(imagePath, confidence);
+            if (!result.Found) return $"Image not found on screen (confidence < {confidence})";
+
+            return MouseClick(result.CenterX, result.CenterY, clickType);
+        }
+
+        /// <summary>Waits until a template image appears on screen (polls every 500ms).</summary>
+        public static async System.Threading.Tasks.Task<string> WaitForImage(string imagePath, double confidence, int timeoutSeconds)
+        {
+            var deadline = DateTime.Now.AddSeconds(timeoutSeconds);
+            while (DateTime.Now < deadline)
+            {
+                var result = ImageMatchService.FindOnScreen(imagePath, confidence);
+                if (result.Found)
+                    return $"Found at ({result.CenterX},{result.CenterY}) confidence={result.Confidence:F2}";
+                await System.Threading.Tasks.Task.Delay(500);
+            }
+            return $"Timeout: image not found after {timeoutSeconds}s";
+        }
+
+        /// <summary>Checks if a template image exists on screen right now.</summary>
+        public static bool ImageExists(string imagePath, double confidence = 0.8)
+        {
+            return ImageMatchService.FindOnScreen(imagePath, confidence).Found;
+        }
+
         // ════════════════════════════════════════════════════════════════════
         //  macOS IMPLEMENTATIONS (AppleScript via osascript + CLI)
         // ════════════════════════════════════════════════════════════════════

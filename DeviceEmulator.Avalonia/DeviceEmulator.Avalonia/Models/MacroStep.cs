@@ -240,6 +240,11 @@ namespace DeviceEmulator.Models
         public bool HasProvider => ProviderType != "None" && !string.IsNullOrEmpty(ProviderType);
 
         /// <summary>
+        /// Whether this argument uses the ImageCapture provider (shows 📷 button).
+        /// </summary>
+        public bool IsImageCapture => ProviderType == "ImageCapture";
+
+        /// <summary>
         /// Dynamic suggestions populated on demand.
         /// </summary>
         public ObservableCollection<string> Suggestions { get; } = new();

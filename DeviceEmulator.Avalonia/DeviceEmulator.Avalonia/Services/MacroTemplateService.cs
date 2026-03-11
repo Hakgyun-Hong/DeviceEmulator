@@ -519,6 +519,49 @@ catch (Exception ex)
     globals.{{ErrorVariable}} = ex.Message;
     return ""Error: "" + ex.Message;
 }"),
+
+                // ─────────────────────────────────────────────────────
+                //  IMAGE (Surface Automation)
+                // ─────────────────────────────────────────────────────
+                T("Image", "Click Image",
+                    "Finds a template image on screen and clicks its center. Uses NCC template matching.",
+                    new[]{ "ImagePath", "Confidence", "ClickType" },
+                    "return DeviceEmulator.Services.PlatformAutomation.ClickImage(\"{{ImagePath}}\", double.Parse(\"{{Confidence}}\"), \"{{ClickType}}\");",
+                    new Dictionary<string, string> { ["ImagePath"] = "ImageCapture" }),
+
+                T("Image", "Find Image",
+                    "Searches for a template image on screen and returns its center coordinates (X,Y) or 'Not found'.",
+                    new[]{ "ImagePath", "Confidence", "ResultVariable" },
+                    "var result = DeviceEmulator.Services.PlatformAutomation.FindImageOnScreen(\"{{ImagePath}}\", double.Parse(\"{{Confidence}}\"));\nglobals.{{ResultVariable}} = result;\nreturn \"Image search: \" + result;",
+                    new Dictionary<string, string> { ["ImagePath"] = "ImageCapture" }),
+
+                T("Image", "Wait For Image",
+                    "Waits until a template image appears on screen (polls every 500ms up to timeout).",
+                    new[]{ "ImagePath", "Confidence", "TimeoutSeconds" },
+                    "return await DeviceEmulator.Services.PlatformAutomation.WaitForImage(\"{{ImagePath}}\", double.Parse(\"{{Confidence}}\"), {{TimeoutSeconds}});",
+                    new Dictionary<string, string> { ["ImagePath"] = "ImageCapture" }),
+
+                T("Image", "Image Exists",
+                    "Checks if a template image exists on screen right now.",
+                    new[]{ "ImagePath", "Confidence", "ResultVariable" },
+                    "var exists = DeviceEmulator.Services.PlatformAutomation.ImageExists(\"{{ImagePath}}\", double.Parse(\"{{Confidence}}\"));\nglobals.{{ResultVariable}} = exists;\nreturn \"Image exists: \" + exists;",
+                    new Dictionary<string, string> { ["ImagePath"] = "ImageCapture" }),
+
+                T("Image", "Capture Image",
+                    "Opens the capture overlay to interactively select and save a template image from the screen.",
+                    new[]{ "SavePath" },
+                    "return \"Use the 📷 Capture button in Properties panel to capture interactively.\";"),
+
+                T("Image", "Click Image Offset",
+                    "Finds a template image and clicks at an offset (OffsetX, OffsetY) from its center.",
+                    new[]{ "ImagePath", "Confidence", "OffsetX", "OffsetY", "ClickType" },
+@"var pos = DeviceEmulator.Services.PlatformAutomation.FindImageOnScreen(""{{ImagePath}}"", double.Parse(""{{Confidence}}""));
+if (pos == ""Not found"") return ""Image not found"";
+var parts = pos.Split(',');
+int cx = int.Parse(parts[0]) + {{OffsetX}};
+int cy = int.Parse(parts[1]) + {{OffsetY}};
+return DeviceEmulator.Services.PlatformAutomation.MouseClick(cx, cy, ""{{ClickType}}"");",
+                    new Dictionary<string, string> { ["ImagePath"] = "ImageCapture" }),
             };
         }
 

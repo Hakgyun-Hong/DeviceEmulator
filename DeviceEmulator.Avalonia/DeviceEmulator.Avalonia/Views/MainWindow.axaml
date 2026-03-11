@@ -313,9 +313,10 @@
                                             <DataTemplate>
                                                 <StackPanel Spacing="2" Margin="0,0,0,6">
                                                     <TextBlock Text="{Binding Name}" Foreground="#D4D4D4" FontSize="11" FontWeight="SemiBold"/>
-                                                    <Grid ColumnDefinitions="*,Auto">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto">
                                                         <TextBox Text="{Binding Value}" Background="#252526" Foreground="#D4D4D4" 
                                                                  BorderThickness="1" BorderBrush="#3C3C3C" FontSize="12"/>
+                                                        <!-- Suggestion ComboBox (WindowList, UIElementList, etc.) -->
                                                         <ComboBox Grid.Column="1" IsVisible="{Binding HasProvider}"
                                                                   ItemsSource="{Binding Suggestions}"
                                                                   SelectedItem="{Binding SelectedSuggestion}"
@@ -324,6 +325,13 @@
                                                                   Background="#2D2D30" Foreground="#D4D4D4"
                                                                   FontSize="11" Margin="4,0,0,0"
                                                                   PlaceholderText="▼"/>
+                                                        <!-- 📷 Capture Button (ImageCapture provider) -->
+                                                        <Button Grid.Column="2" Content="📷" 
+                                                                IsVisible="{Binding IsImageCapture}"
+                                                                Click="OnImageCaptureClick"
+                                                                Background="#2A4A6B" Foreground="White"
+                                                                Padding="6,2" Margin="4,0,0,0" FontSize="12"
+                                                                ToolTip.Tip="Capture image from screen"/>
                                                     </Grid>
                                                 </StackPanel>
                                             </DataTemplate>
